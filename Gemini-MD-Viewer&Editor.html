@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MD Studio - 마크다운 에디터 & 뷰어</title>
+  
+  <!-- External Libraries (CDN) with Fallback Handling -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+  
+  <style>
+    /* ==========================================
+       1. CSS Variables & Theme Configuration
+       ========================================== */
+    :root {
+      --bg-primary: #f8f9fa;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #edf2f7;
+      --border-color: #e2e8f0;
+      --text-primary: #1a202c;
+      --text-secondary: #4a5568;
+      --text-muted: #a0aec0;
+      --accent-color: #3182ce;
+      --accent-hover: #2b6cb0;
+      --accent-light: #ebf8ff;
+      --success-color: #38a169;
+      --warning-color: #dd6b20;
+      --danger-color: #e53e3e;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      --resizer-width: 6px;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a202c;
+      --bg-secondary: #2d3748;
+      --bg-tertiary: #171923;
+      --border-color: #4a5568;
+      --text-primary: #f7fafc;
+      --text-secondary: #cbd5e0;
+      --text-muted: #718096;
+      --accent-color: #4299e1;
+      --accent-hover: #63b3ed;
+      --accent-light: #2a4365;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    }
+
+    /* ==========================================
+       2. General Reset & Layout Setup
+       ========================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-ui);
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ==========================================
+       3. Header & Toolbar
+       ========================================== */
+    header.app-header {
+      background-color: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 10;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--accent-color);
+      white-space: nowrap;
+    }
+
+    .brand svg {
+      width: 24px;
+      height: 24px;
+      fill: currentColor;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease-in-out;
+      outline: none;
+    }
+
+    .btn:hover {
+      background-color: var(--bg-tertiary);
+      border-color: var(--text-muted);
+    }
+
+    .btn:focus-visible {
+      box-shadow: 0 0 0 3px var(--accent-light);
+      border-color: var(--accent-color);
+    }
+
+    .btn-primary {
+      background-color: var(--accent-color);
+      color: #ffffff;
+      border-color: var(--accent-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .file-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background-color: var(--bg-tertiary);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      border: 1px solid var(--border-color);
+      max-width: 300px;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .status-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.saved {
+      background-color: rgba(56, 161, 105, 0.15);
+      color: var(--success-color);
+    }
+
+    .status-badge.modified {
+      background-color: rgba(221, 107, 32, 0.15);
+      color: var(--warning-color);
+    }
+
+    /* ==========================================
+       4. Main Workspace & Panels
+       ========================================== */
+    .workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 85px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background-color: var(--bg-secondary);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel-viewer {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .panel-editor {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      background-color: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      user-select: text;
+    }
+
+    /* Resizer / Splitter */
+    .resizer {
+      width: var(--resizer-width);
+      background-color: var(--border-color);
+      cursor: col-resize;
+      transition: background-color 0.2s ease;
+      z-index: 5;
+      position: relative;
+    }
+
+    .resizer:hover, .resizer.dragging {
+      background-color: var(--accent-color);
+    }
+
+    /* Textarea Editor */
+    #editor {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 20px;
+      box-sizing: border-box;
+      tab-size: 2;
+    }
+
+    /* ==========================================
+       5. Markdown Viewer Typography Styles
+       ========================================== */
+    .markdown-body {
+      color: var(--text-primary);
+      font-family: var(--font-ui);
+      line-height: 1.7;
+      word-wrap: break-word;
+    }
+
+    .markdown-body h1, .markdown-body h2, .markdown-body h3,
+    .markdown-body h4, .markdown-body h5, .markdown-body h6 {
+      margin-top: 24px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      line-height: 1.25;
+      color: var(--text-primary);
+    }
+
+    .markdown-body h1 {
+      font-size: 2em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .markdown-body h2 {
+      font-size: 1.5em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .markdown-body h3 { font-size: 1.25em; }
+    .markdown-body h4 { font-size: 1em; }
+
+    .markdown-body p, .markdown-body blockquote, .markdown-body ul,
+    .markdown-body ol, .markdown-body dl, .markdown-body table, .markdown-body pre {
+      margin-top: 0;
+      margin-bottom: 16px;
+    }
+
+    .markdown-body ul, .markdown-body ol {
+      padding-left: 2em;
+    }
+
+    .markdown-body blockquote {
+      padding: 0 1em;
+      color: var(--text-secondary);
+      border-left: 0.25em solid var(--accent-color);
+      background-color: var(--bg-tertiary);
+      border-radius: 0 4px 4px 0;
+      padding: 8px 16px;
+    }
+
+    .markdown-body code {
+      padding: 0.2em 0.4em;
+      margin: 0;
+      font-size: 85%;
+      background-color: var(--bg-tertiary);
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .markdown-body pre {
+      padding: 16px;
+      overflow: auto;
+      font-size: 85%;
+      line-height: 1.45;
+      background-color: var(--bg-tertiary);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+
+    .markdown-body pre code {
+      background-color: transparent;
+      padding: 0;
+      font-size: 100%;
+    }
+
+    .markdown-body table {
+      border-spacing: 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow: auto;
+    }
+
+    .markdown-body table th, .markdown-body table td {
+      padding: 8px 13px;
+      border: 1px solid var(--border-color);
+    }
+
+    .markdown-body table tr {
+      background-color: var(--bg-secondary);
+    }
+
+    .markdown-body table tr:nth-child(2n) {
+      background-color: var(--bg-tertiary);
+    }
+
+    .markdown-body img {
+      max-width: 100%;
+      box-sizing: content-box;
+      border-radius: 6px;
+    }
+
+    .markdown-body hr {
+      height: 0.25em;
+      padding: 0;
+      margin: 24px 0;
+      background-color: var(--border-color);
+      border: 0;
+    }
+
+    .markdown-body a {
+      color: var(--accent-color);
+      text-decoration: none;
+    }
+
+    .markdown-body a:hover {
+      text-decoration: underline;
+    }
+
+    /* Empty state styling */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      stroke: var(--text-muted);
+      stroke-width: 1.5;
+    }
+
+    /* ==========================================
+       6. Footer / Statusbar
+       ========================================== */
+    footer.app-footer {
+      background-color: var(--bg-secondary);
+      border-top: 1px solid var(--border-color);
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      z-index: 10;
+    }
+
+    .status-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .status-metrics {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .metric-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Notification Alert Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 40px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: 6px;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border-color);
+      border-left: 4px solid var(--accent-color);
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: slideIn 0.2s ease-out;
+    }
+
+    .toast.error {
+      border-left-color: var(--danger-color);
+    }
+
+    .toast.success {
+      border-left-color: var(--success-color);
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* ==========================================
+       7. Responsive Design (Mobile / Tablet)
+       ========================================== */
+    @media (max-width: 768px) {
+      header.app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px;
+      }
+
+      .toolbar-actions {
+        justify-content: space-between;
+      }
+
+      .workspace {
+        flex-direction: column;
+      }
+
+      .resizer {
+        width: 100%;
+        height: var(--resizer-width);
+        cursor: row-resize;
+      }
+
+      .file-meta {
+        max-width: 100%;
+        justify-content: space-between;
+      }
+
+      footer.app-footer {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden File Input for Fallback File Picker -->
+  <input type="file" id="file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" style="display: none;">
+
+  <!-- Header / Toolbar -->
+  <header class="app-header">
+    <div class="brand">
+      <svg viewBox="0 0 24 24">
+        <path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.2 3 17.5 3H6.5c-.7 0-1.38.21-1.65.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12.14l.82 1H5.12z"/>
+      </svg>
+      <span>MD Studio</span>
+    </div>
+
+    <div class="file-meta">
+      <span class="file-name" id="file-name-display">제목 없음.md</span>
+      <span class="status-badge saved" id="status-badge">저장됨</span>
+    </div>
+
+    <div class="toolbar-actions">
+      <button class="btn" id="btn-new" title="새 문서 (Ctrl+N)" aria-label="새 문서">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+        새 문서
+      </button>
+
+      <button class="btn" id="btn-open" title="파일 열기 (Ctrl+O)" aria-label="파일 열기">
+        <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        열기
+      </button>
+
+      <button class="btn btn-primary" id="btn-save" title="저장 (Ctrl+S)" aria-label="저장">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        저장
+      </button>
+
+      <button class="btn" id="btn-save-as" title="다른 이름으로 저장" aria-label="다른 이름으로 저장">
+        <svg viewBox="0 0 24 24"><path d="M17 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10m0-2H7a4 4 0 0 0-4 4v14a4 4 0 0 0 4 4h10a4 4 0 0 0 4-4V5a4 4 0 0 0-4-4z"></path></svg>
+        다른 이름으로 저장
+      </button>
+
+      <button class="btn" id="btn-theme" title="다크/라이트 모드 전환" aria-label="테마 전환">
+        <svg id="theme-icon-sun" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg id="theme-icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="workspace" id="workspace">
+    <!-- Left: Viewer Panel -->
+    <section class="panel panel-viewer" id="panel-viewer">
+      <div class="panel-header">
+        <span>Markdown Viewer (미리보기)</span>
+        <span style="font-weight: normal; opacity: 0.8;">읽기 전용</span>
+      </div>
+      <div class="panel-content markdown-body" id="viewer">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <p>마크다운 문서를 열거나 오른쪽 에디터에서 내용을 작성하세요.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Resizer Divider -->
+    <div class="resizer" id="resizer" title="드래그하여 크기 조절"></div>
+
+    <!-- Right: Editor Panel -->
+    <section class="panel panel-editor" id="panel-editor">
+      <div class="panel-header">
+        <span>Markdown Editor (편집기)</span>
+        <span id="line-counter">1 줄</span>
+      </div>
+      <textarea id="editor" placeholder="여기에 마크다운 문서를 입력하세요..." spellcheck="false"></textarea>
+    </section>
+  </main>
+
+  <!-- Footer / Statusbar -->
+  <footer class="app-footer">
+    <div class="status-left">
+      <span id="system-status">준비됨</span>
+    </div>
+    <div class="status-metrics">
+      <div class="metric-item"><span>문자 수:</span> <strong id="metric-chars">0</strong></div>
+      <div class="metric-item"><span>단어 수:</span> <strong id="metric-words">0</strong></div>
+      <div class="metric-item"><span>줄 수:</span> <strong id="metric-lines">1</strong></div>
+      <div class="metric-item"><span>용량:</span> <strong id="metric-size">0 B</strong></div>
+    </div>
+  </footer>
+
+  <!-- Toast Message Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script>
+    /**
+     * MD Studio - Core Application Logic
+     */
+    const AppState = {
+      content: '',
+      fileName: '제목 없음.md',
+      fileHandle: null, // FileSystemFileHandle for File System Access API
+      isModified: false,
+      isDarkMode: false,
+      renderDebounceTimer: null
+    };
+
+    // DOM Element Cache
+    const DOM = {
+      editor: document.getElementById('editor'),
+      viewer: document.getElementById('viewer'),
+      fileNameDisplay: document.getElementById('file-name-display'),
+      statusBadge: document.getElementById('status-badge'),
+      systemStatus: document.getElementById('system-status'),
+      fileInput: document.getElementById('file-input'),
+      resizer: document.getElementById('resizer'),
+      workspace: document.getElementById('workspace'),
+      panelViewer: document.getElementById('panel-viewer'),
+      panelEditor: document.getElementById('panel-editor'),
+      lineCounter: document.getElementById('line-counter'),
+      btnNew: document.getElementById('btn-new'),
+      btnOpen: document.getElementById('btn-open'),
+      btnSave: document.getElementById('btn-save'),
+      btnSaveAs: document.getElementById('btn-save-as'),
+      btnTheme: document.getElementById('btn-theme'),
+      themeIconSun: document.getElementById('theme-icon-sun'),
+      themeIconMoon: document.getElementById('theme-icon-moon'),
+      metricChars: document.getElementById('metric-chars'),
+      metricWords: document.getElementById('metric-words'),
+      metricLines: document.getElementById('metric-lines'),
+      metricSize: document.getElementById('metric-size'),
+      toastContainer: document.getElementById('toast-container')
+    };
+
+    // Initialize Application
+    document.addEventListener('DOMContentLoaded', () => {
+      initApp();
+    });
+
+    function initApp() {
+      setupMarked();
+      setupEventListeners();
+      setupResizer();
+      setupShortcuts();
+      setupBeforeUnload();
+      updateUI();
+      showToast('MD Studio 에디터가 준비되었습니다.', 'info');
+    }
+
+    /* ==========================================
+       1. Marked & DOMPurify Config
+       ========================================== */
+    function setupMarked() {
+      if (typeof marked !== 'undefined') {
+        marked.setOptions({
+          gfm: true,
+          breaks: true,
+          headerIds: true,
+          mangle: false
+        });
+      } else {
+        console.warn('marked.js 라이브러리를 로드하지 못했습니다. 기본 텍스트 모드로 동작합니다.');
+      }
+    }
+
+    function renderMarkdown(mdText) {
+      if (!mdText.trim()) {
+        DOM.viewer.innerHTML = `
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <p>마크다운 문서를 열거나 오른쪽 에디터에서 내용을 작성하세요.</p>
+          </div>`;
+        return;
+      }
+
+      try {
+        let rawHtml = '';
+        if (typeof marked !== 'undefined') {
+          rawHtml = marked.parse(mdText);
+        } else {
+          // Simple fallback if CDN fails
+          rawHtml = mdText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+        }
+
+        // Sanitize HTML with DOMPurify if available
+        let cleanHtml = rawHtml;
+        if (typeof DOMPurify !== 'undefined') {
+          cleanHtml = DOMPurify.sanitize(rawHtml);
+        }
+
+        DOM.viewer.innerHTML = cleanHtml;
+      } catch (err) {
+        console.error('Markdown Rendering Error:', err);
+        DOM.viewer.innerHTML = `<div style="color:var(--danger-color); padding:16px;">렌더링 중 오류가 발생했습니다: ${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    /* ==========================================
+       2. Event Handling & Synchronization
+       ========================================== */
+    function setupEventListeners() {
+      // Editor Input Event with Debounce
+      DOM.editor.addEventListener('input', () => {
+        AppState.content = DOM.editor.value;
+        setModified(true);
+        updateMetrics();
+
+        // Debounce rendering for performance with large documents
+        clearTimeout(AppState.renderDebounceTimer);
+        AppState.renderDebounceTimer = setTimeout(() => {
+          renderMarkdown(AppState.content);
+        }, 100);
+      });
+
+      // Handle Tab Key inside Editor
+      DOM.editor.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+          e.preventDefault();
+          const start = DOM.editor.selectionStart;
+          const end = DOM.editor.selectionEnd;
+
+          DOM.editor.value = DOM.editor.value.substring(0, start) + "  " + DOM.editor.value.substring(end);
+          DOM.editor.selectionStart = DOM.editor.selectionEnd = start + 2;
+          
+          // Trigger input update
+          DOM.editor.dispatchEvent(new Event('input'));
+        }
+      });
+
+      // Button Click Handlers
+      DOM.btnNew.addEventListener('click', handleNewDocument);
+      DOM.btnOpen.addEventListener('click', handleOpenFile);
+      DOM.btnSave.addEventListener('click', handleSaveFile);
+      DOM.btnSaveAs.addEventListener('click', handleSaveFileAs);
+      DOM.btnTheme.addEventListener('click', toggleTheme);
+      DOM.fileInput.addEventListener('change', handleFileInputChange);
+    }
+
+    /* ==========================================
+       3. File Operations (Open, Save, Direct Overwrite)
+       ========================================== */
+    async function handleOpenFile() {
+      if (AppState.isModified) {
+        const confirmResult = confirm('저장되지 않은 변경사항이 있습니다. 계속해서 다른 파일을 열겠습니까?');
+        if (!confirmResult) return;
+      }
+
+      // Try File System Access API first
+      if ('showOpenFilePicker' in window) {
+        try {
+          const [handle] = await window.showOpenFilePicker({
+            types: [
+              {
+                description: 'Markdown Files',
+                accept: { 'text/markdown': ['.md', '.markdown'], 'text/plain': ['.txt'] }
+              }
+            ],
+            multiple: false
+          });
+
+          const file = await handle.getFile();
+          const text = await file.text();
+
+          AppState.fileHandle = handle;
+          AppState.fileName = file.name;
+          AppState.content = text;
+
+          DOM.editor.value = text;
+          renderMarkdown(text);
+          setModified(false);
+          updateMetrics();
+          updateUI();
+          showToast(`파일을 열었습니다: ${file.name}`, 'success');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return; // User cancelled dialog
+          console.warn('File System Access API error/fallback:', err);
+        }
+      }
+
+      // Fallback to standard input element
+      DOM.fileInput.click();
+    }
+
+    function handleFileInputChange(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        AppState.fileHandle = null; // Standard fallback doesn't hold direct handle
+        AppState.fileName = file.name;
+        AppState.content = event.target.result;
+
+        DOM.editor.value = AppState.content;
+        renderMarkdown(AppState.content);
+        setModified(false);
+        updateMetrics();
+        updateUI();
+        showToast(`파일을 열었습니다: ${file.name}`, 'success');
+      };
+      reader.onerror = () => {
+        showToast('파일을 읽는 중 오류가 발생했습니다.', 'error');
+      };
+      reader.readAsText(file, 'UTF-8');
+      
+      // Reset input value to allow opening same file again
+      DOM.fileInput.value = '';
+    }
+
+    async function handleSaveFile() {
+      // 1. Direct overwrite using File System Access API if handle exists
+      if (AppState.fileHandle && 'createWritable' in AppState.fileHandle) {
+        try {
+          const writable = await AppState.fileHandle.createWritable();
+          await writable.write(AppState.content);
+          await writable.close();
+
+          setModified(false);
+          showToast(`파일을 성공적으로 저장했습니다: ${AppState.fileName}`, 'success');
+          return;
+        } catch (err) {
+          console.warn('직접 덮어쓰기 저장 실패, 다운로드/다른이름저장 방식으로 전환합니다:', err);
+        }
+      }
+
+      // 2. Fallback to Save As / Blob Download if no handle or unsupported
+      await handleSaveFileAs();
+    }
+
+    async function handleSaveFileAs() {
+      // Try File System Access API showSaveFilePicker
+      if ('showSaveFilePicker' in window) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: AppState.fileName,
+            types: [
+              {
+                description: 'Markdown File',
+                accept: { 'text/markdown': ['.md'] }
+              }
+            ]
+          });
+
+          const writable = await handle.createWritable();
+          await writable.write(AppState.content);
+          await writable.close();
+
+          AppState.fileHandle = handle;
+          AppState.fileName = handle.name;
+          setModified(false);
+          updateUI();
+          showToast(`파일이 저장되었습니다: ${handle.name}`, 'success');
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return; // User cancelled
+          console.warn('showSaveFilePicker failed, fallback to Blob download:', err);
+        }
+      }
+
+      // Fallback: Blob Download
+      try {
+        const blob = new Blob([AppState.content], { type: 'text/markdown;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = AppState.fileName || 'document.md';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        setModified(false);
+        showToast(`파일을 다운로드했습니다: ${AppState.fileName}`, 'success');
+      } catch (err) {
+        console.error('File Download Error:', err);
+        showToast('파일 저장 중 오류가 발생했습니다.', 'error');
+      }
+    }
+
+    function handleNewDocument() {
+      if (AppState.isModified) {
+        const confirmResult = confirm('저장되지 않은 변경사항이 있습니다. 새 문서를 만들어 이전 내용을 지우시겠습니까?');
+        if (!confirmResult) return;
+      }
+
+      AppState.content = '';
+      AppState.fileName = '제목 없음.md';
+      AppState.fileHandle = null;
+
+      DOM.editor.value = '';
+      renderMarkdown('');
+      setModified(false);
+      updateMetrics();
+      updateUI();
+      showToast('새 문서를 생성했습니다.', 'info');
+    }
+
+    /* ==========================================
+       4. State Management & Metrics
+       ========================================== */
+    function setModified(modified) {
+      AppState.isModified = modified;
+      if (modified) {
+        DOM.statusBadge.textContent = '수정됨';
+        DOM.statusBadge.className = 'status-badge modified';
+        document.title = `* ${AppState.fileName} - MD Studio`;
+        DOM.systemStatus.textContent = '수정되지 않은 변경사항이 있습니다.';
+      } else {
+        DOM.statusBadge.textContent = '저장됨';
+        DOM.statusBadge.className = 'status-badge saved';
+        document.title = `${AppState.fileName} - MD Studio`;
+        DOM.systemStatus.textContent = '모든 변경사항이 저장되었습니다.';
+      }
+    }
+
+    function updateMetrics() {
+      const text = AppState.content;
+      const chars = text.length;
+      const words = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+      const lines = text === '' ? 1 : text.split('\n').length;
+      const bytes = new Blob([text]).size;
+
+      DOM.metricChars.textContent = chars.toLocaleString();
+      DOM.metricWords.textContent = words.toLocaleString();
+      DOM.metricLines.textContent = lines.toLocaleString();
+      DOM.metricSize.textContent = formatBytes(bytes);
+      DOM.lineCounter.textContent = `${lines} 줄`;
+    }
+
+    function updateUI() {
+      DOM.fileNameDisplay.textContent = AppState.fileName;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    }
+
+    /* ==========================================
+       5. Resizer (Drag Divider) Implementation
+       ========================================== */
+    function setupResizer() {
+      let isDragging = false;
+
+      DOM.resizer.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        DOM.resizer.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+
+        const workspaceWidth = DOM.workspace.clientWidth;
+        const mouseX = e.clientX - DOM.workspace.getBoundingClientRect().left;
+
+        // Bound panel width percentages between 15% and 85%
+        let leftPercent = (mouseX / workspaceWidth) * 100;
+        if (leftPercent < 15) leftPercent = 15;
+        if (leftPercent > 85) leftPercent = 85;
+
+        DOM.panelViewer.style.flex = `0 0 ${leftPercent}%`;
+        DOM.panelEditor.style.flex = `0 0 ${100 - leftPercent}%`;
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isDragging) {
+          isDragging = false;
+          DOM.resizer.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+        }
+      });
+    }
+
+    /* ==========================================
+       6. Keyboard Shortcuts
+       ========================================== */
+    function setupShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+
+        if (isCmdOrCtrl && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          handleSaveFile();
+        } else if (isCmdOrCtrl && e.key.toLowerCase() === 'o') {
+          e.preventDefault();
+          handleOpenFile();
+        } else if (isCmdOrCtrl && e.key.toLowerCase() === 'n') {
+          e.preventDefault();
+          handleNewDocument();
+        }
+      });
+    }
+
+    /* ==========================================
+       7. Before Unload Prevention
+       ========================================== */
+    function setupBeforeUnload() {
+      window.addEventListener('beforeunload', (e) => {
+        if (AppState.isModified) {
+          e.preventDefault();
+          e.returnValue = '저장되지 않은 변경사항이 있습니다. 정말 페이지를 떠나시겠습니까?';
+          return e.returnValue;
+        }
+      });
+    }
+
+    /* ==========================================
+       8. Dark / Light Theme Switching
+       ========================================== */
+    function toggleTheme() {
+      AppState.isDarkMode = !AppState.isDarkMode;
+      if (AppState.isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        DOM.themeIconSun.style.display = 'block';
+        DOM.themeIconMoon.style.display = 'none';
+        showToast('다크 모드로 전환되었습니다.', 'info');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        DOM.themeIconSun.style.display = 'none';
+        DOM.themeIconMoon.style.display = 'block';
+        showToast('라이트 모드로 전환되었습니다.', 'info');
+      }
+    }
+
+    /* ==========================================
+       9. Toast Notifications & Helpers
+       ========================================== */
+    function showToast(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+
+      DOM.toastContainer.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 300);
+      }, 3000);
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, (m) => {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>

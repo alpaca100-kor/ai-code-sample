@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Viewer & Editor</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --panel: #ffffff;
+    --border: #d9dde3;
+    --text: #202124;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --header: #ffffff;
+    --editor-bg: #fbfbfc;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR",
+      "Malgun Gothic", Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    overflow: hidden;
+  }
+
+  button, input, textarea {
+    font: inherit;
+  }
+
+  button {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #f0f2f5;
+  }
+
+  button.primary {
+    color: white;
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  button.primary:hover {
+    background: #1d4ed8;
+  }
+
+  button:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .app {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .toolbar {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: var(--header);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    font-weight: 700;
+    margin-right: 8px;
+    white-space: nowrap;
+  }
+
+  .separator {
+    width: 1px;
+    height: 26px;
+    background: var(--border);
+    margin: 0 3px;
+  }
+
+  .filename {
+    min-width: 120px;
+    flex: 1;
+    color: var(--muted);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .status.modified {
+    color: #b45309;
+    font-weight: 600;
+  }
+
+  .workspace {
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .pane {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .viewer-pane {
+    width: 50%;
+    background: var(--panel);
+  }
+
+  .editor-pane {
+    width: 50%;
+    background: var(--editor-bg);
+  }
+
+  .pane-header {
+    height: 38px;
+    flex: 0 0 38px;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+  }
+
+  .viewer {
+    min-height: 0;
+    flex: 1;
+    overflow: auto;
+    padding: 30px 38px 60px;
+    line-height: 1.75;
+  }
+
+  .viewer.empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  .viewer h1, .viewer h2, .viewer h3,
+  .viewer h4, .viewer h5, .viewer h6 {
+    line-height: 1.35;
+    margin: 1.4em 0 .55em;
+  }
+
+  .viewer h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+  .viewer h2 { font-size: 1.55em; border-bottom: 1px solid #eceff2; padding-bottom: .25em; }
+  .viewer h3 { font-size: 1.3em; }
+
+  .viewer p { margin: .85em 0; }
+
+  .viewer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+
+  .viewer a:hover { text-decoration: underline; }
+
+  .viewer blockquote {
+    margin: 1em 0;
+    padding: .2em 1em;
+    border-left: 4px solid #c7cdd5;
+    color: #5b6470;
+    background: #f7f8fa;
+  }
+
+  .viewer code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: #f0f2f5;
+    padding: .15em .35em;
+    border-radius: 4px;
+    font-size: .9em;
+  }
+
+  .viewer pre {
+    overflow: auto;
+    padding: 16px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #f9fafb;
+    line-height: 1.55;
+  }
+
+  .viewer pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+
+  .viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+  }
+
+  .viewer th, .viewer td {
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .viewer th { background: #f5f6f8; }
+
+  .viewer img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .viewer ul, .viewer ol {
+    padding-left: 1.8em;
+  }
+
+  .viewer hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+  }
+
+  .editor {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    border: 0;
+    outline: 0;
+    padding: 22px;
+    background: transparent;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas,
+      "Liberation Mono", monospace;
+    font-size: 14px;
+    line-height: 1.65;
+    tab-size: 2;
+    white-space: pre-wrap;
+    overflow: auto;
+  }
+
+  .resizer {
+    width: 5px;
+    flex: 0 0 5px;
+    cursor: col-resize;
+    background: var(--border);
+    position: relative;
+    z-index: 2;
+  }
+
+  .resizer:hover,
+  .resizer.dragging {
+    background: var(--accent);
+  }
+
+  .footer {
+    height: 28px;
+    flex: 0 0 28px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    padding: 0 12px;
+    border-top: 1px solid var(--border);
+    background: var(--header);
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .drop-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(37, 99, 235, .12);
+    border: 3px dashed var(--accent);
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .drop-overlay span {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 30px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+    font-weight: 600;
+  }
+
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+
+    .toolbar {
+      min-height: auto;
+    }
+
+    .workspace {
+      flex-direction: column;
+      overflow: visible;
+    }
+
+    .viewer-pane,
+    .editor-pane {
+      width: 100%;
+      height: 50vh;
+    }
+
+    .resizer {
+      width: 100%;
+      height: 5px;
+      flex-basis: 5px;
+      cursor: row-resize;
+    }
+
+    .viewer {
+      padding: 22px;
+    }
+
+    .editor {
+      min-height: 45vh;
+    }
+
+    .footer {
+      position: sticky;
+      bottom: 0;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="toolbar">
+    <div class="brand">Markdown Viewer &amp; Editor</div>
+    <div class="separator"></div>
+    <button id="newBtn" type="button">새 문서</button>
+    <button id="openBtn" type="button">열기</button>
+    <button id="saveBtn" type="button" class="primary">저장</button>
+    <button id="saveAsBtn" type="button">다른 이름으로 저장</button>
+    <input id="fileInput" class="hidden" type="file" accept=".md,.markdown,text/markdown,text/plain">
+    <div class="filename" id="filename">새 문서</div>
+    <div class="status" id="status">저장됨</div>
+  </header>
+
+  <main class="workspace" id="workspace">
+    <section class="pane viewer-pane" id="viewerPane">
+      <div class="pane-header">VIEWER</div>
+      <article class="viewer empty" id="viewer">
+        <div>
+          <strong>Markdown 문서를 불러오세요.</strong><br>
+          오른쪽 Editor에서 직접 Markdown을 작성할 수도 있습니다.
+        </div>
+      </article>
+    </section>
+
+    <div class="resizer" id="resizer" role="separator"
+         aria-orientation="vertical" aria-label="Viewer와 Editor 크기 조절"></div>
+
+    <section class="pane editor-pane" id="editorPane">
+      <div class="pane-header">EDITOR</div>
+      <textarea id="editor" class="editor"
+        aria-label="Markdown Editor"
+        spellcheck="false"
+        placeholder="# 제목
+
+여기에 Markdown을 입력하세요."></textarea>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span id="charCount">0자</span>
+    <span id="lineCount">1줄</span>
+  </footer>
+</div>
+
+<div id="dropOverlay" class="drop-overlay hidden">
+  <span>Markdown 파일을 여기에 놓으세요</span>
+</div>
+
+<script>
+"use strict";
+
+const state = {
+  fileHandle: null,
+  fileName: "새 문서.md",
+  originalContent: "",
+  modified: false,
+  isNewDocument: true
+};
+
+const editor = document.getElementById("editor");
+const viewer = document.getElementById("viewer");
+const fileInput = document.getElementById("fileInput");
+const filename = document.getElementById("filename");
+const status = document.getElementById("status");
+const charCount = document.getElementById("charCount");
+const lineCount = document.getElementById("lineCount");
+const newBtn = document.getElementById("newBtn");
+const openBtn = document.getElementById("openBtn");
+const saveBtn = document.getElementById("saveBtn");
+const saveAsBtn = document.getElementById("saveAsBtn");
+const resizer = document.getElementById("resizer");
+const viewerPane = document.getElementById("viewerPane");
+const editorPane = document.getElementById("editorPane");
+const workspace = document.getElementById("workspace");
+const dropOverlay = document.getElementById("dropOverlay");
+
+function escapeHtml(value) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function sanitizeUrl(url) {
+  const value = url.trim();
+  if (/^(https?:|mailto:|#)/i.test(value)) {
+    return value;
+  }
+  return "#";
+}
+
+/*
+ * 외부 Markdown 라이브러리 없이 동작하도록 만든 경량 Markdown 렌더러입니다.
+ * 일반적인 문서 편집에 필요한 문법을 중심으로 지원합니다.
+ */
+function renderMarkdown(markdown) {
+  if (!markdown.trim()) {
+    viewer.classList.add("empty");
+    viewer.innerHTML = `
+      <div>
+        <strong>빈 문서입니다.</strong><br>
+        오른쪽 Editor에서 Markdown을 작성하세요.
+      </div>`;
+    return;
+  }
+
+  viewer.classList.remove("empty");
+
+  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+  const output = [];
+  let i = 0;
+  let paragraph = [];
+  let listType = null;
+  let listItems = [];
+  let inCode = false;
+  let codeLanguage = "";
+  let codeLines = [];
+
+  function flushParagraph() {
+    if (!paragraph.length) return;
+    const text = paragraph.join("\n");
+    output.push(`<p>${formatInline(text).replace(/\n/g, "<br>")}</p>`);
+    paragraph = [];
+  }
+
+  function flushList() {
+    if (!listItems.length) return;
+    const tag = listType === "ol" ? "ol" : "ul";
+    output.push(`<${tag}>${listItems.map(item => `<li>${formatInline(item)}</li>`).join("")}</${tag}>`);
+    listItems = [];
+    listType = null;
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (inCode) {
+      if (/^```/.test(line.trim())) {
+        output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+        inCode = false;
+        codeLanguage = "";
+        codeLines = [];
+      } else {
+        codeLines.push(line);
+      }
+      i++;
+      continue;
+    }
+
+    if (/^```/.test(line.trim())) {
+      flushParagraph();
+      flushList();
+      codeLanguage = line.trim().slice(3).trim();
+      inCode = true;
+      codeLines = [];
+      i++;
+      continue;
+    }
+
+    if (/^\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      i++;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      const level = heading[1].length;
+      output.push(`<h${level}>${formatInline(heading[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) {
+      flushParagraph();
+      flushList();
+      output.push("<hr>");
+      i++;
+      continue;
+    }
+
+    const blockquote = line.match(/^\s*>\s?(.*)$/);
+    if (blockquote) {
+      flushParagraph();
+      flushList();
+      const quoteLines = [];
+      while (i < lines.length) {
+        const match = lines[i].match(/^\s*>\s?(.*)$/);
+        if (!match) break;
+        quoteLines.push(match[1]);
+        i++;
+      }
+      output.push(`<blockquote>${formatInline(quoteLines.join("\n")).replace(/\n/g, "<br>")}</blockquote>`);
+      continue;
+    }
+
+    const unordered = line.match(/^\s*[-+*]\s+(.*)$/);
+    if (unordered) {
+      flushParagraph();
+      if (listType && listType !== "ul") flushList();
+      listType = "ul";
+      listItems.push(unordered[1]);
+      i++;
+      continue;
+    }
+
+    const ordered = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ordered) {
+      flushParagraph();
+      if (listType && listType !== "ol") flushList();
+      listType = "ol";
+      listItems.push(ordered[1]);
+      i++;
+      continue;
+    }
+
+    // 간단한 Markdown 표 지원
+    if (line.includes("|") && i + 1 < lines.length &&
+        /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)+\|?\s*$/.test(lines[i + 1])) {
+      flushParagraph();
+      flushList();
+
+      const headers = splitTableRow(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+        rows.push(splitTableRow(lines[i]));
+        i++;
+      }
+
+      output.push("<table><thead><tr>" +
+        headers.map(cell => `<th>${formatInline(cell)}</th>`).join("") +
+        "</tr></thead><tbody>" +
+        rows.map(row => `<tr>${headers.map((_, idx) =>
+          `<td>${formatInline(row[idx] || "")}</td>`).join("")
+        }</tr>`).join("") +
+        "</tbody></table>");
+      continue;
+    }
+
+    paragraph.push(line);
+    i++;
+  }
+
+  if (inCode) {
+    output.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+  }
+
+  flushParagraph();
+  flushList();
+
+  viewer.innerHTML = output.join("\n");
+}
+
+function splitTableRow(row) {
+  let value = row.trim();
+  if (value.startsWith("|")) value = value.slice(1);
+  if (value.endsWith("|")) value = value.slice(0, -1);
+  return value.split("|").map(cell => cell.trim());
+}
+
+function formatInline(text) {
+  let value = escapeHtml(text);
+
+  // 이미지
+  value = value.replace(
+    /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+    (_, alt, url, title) => {
+      const safeUrl = sanitizeUrl(url);
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
+      return `<img src="${escapeHtml(safeUrl)}" alt="${escapeHtml(alt)}"${titleAttr}>`;
+    }
+  );
+
+  // 링크
+  value = value.replace(
+    /\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g,
+    (_, label, url, title) => {
+      const safeUrl = sanitizeUrl(url);
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : "";
+      return `<a href="${escapeHtml(safeUrl)}"${titleAttr} target="_blank" rel="noopener noreferrer">${label}</a>`;
+    }
+  );
+
+  // 인라인 코드
+  value = value.replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // 굵게 / 기울임 / 취소선
+  value = value.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  value = value.replace(/__([^_]+)__/g, "<strong>$1</strong>");
+  value = value.replace(/~~([^~]+)~~/g, "<del>$1</del>");
+  value = value.replace(/(^|[^\*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+  value = value.replace(/(^|[^_])_([^_\n]+)_/g, "$1<em>$2</em>");
+
+  return value;
+}
+
+function updateViewer() {
+  renderMarkdown(editor.value);
+  updateDocumentInfo();
+}
+
+function updateDocumentInfo() {
+  const content = editor.value;
+  charCount.textContent = `${content.length.toLocaleString()}자`;
+  lineCount.textContent = `${Math.max(1, content.split("\n").length).toLocaleString()}줄`;
+}
+
+function setModified(value) {
+  state.modified = value;
+  status.textContent = value ? "수정됨" : "저장됨";
+  status.classList.toggle("modified", value);
+}
+
+function setDocument(content, name, handle = null) {
+  editor.value = content;
+  state.originalContent = content;
+  state.fileName = name || "새 문서.md";
+  state.fileHandle = handle;
+  state.isNewDocument = !handle;
+  filename.textContent = state.fileName;
+  setModified(false);
+  updateViewer();
+}
+
+function getBaseFileName() {
+  const name = state.fileName || "document.md";
+  return name.toLowerCase().endsWith(".md") ? name : `${name}.md`;
+}
+
+async function openFileWithPicker() {
+  if (state.modified && !confirm("저장되지 않은 변경사항이 있습니다. 파일을 열면 변경사항이 사라집니다. 계속하시겠습니까?")) {
+    return;
+  }
+
+  if ("showOpenFilePicker" in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{
+          description: "Markdown 파일",
+          accept: {
+            "text/markdown": [".md", ".markdown"],
+            "text/plain": [".txt"]
+          }
+        }]
+      });
+
+      const file = await handle.getFile();
+      const content = await file.text();
+      setDocument(content, file.name, handle);
+      return;
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      console.warn("File System Access API 열기 실패:", error);
+    }
+  }
+
+  fileInput.value = "";
+  fileInput.click();
+}
+
+async function handleFallbackFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const content = await file.text();
+    setDocument(content, file.name, null);
+  } catch (error) {
+    showError("파일을 읽을 수 없습니다.");
+    console.error(error);
+  }
+}
+
+async function saveCurrentFile() {
+  const content = editor.value;
+
+  if (state.fileHandle) {
+    try {
+      const writable = await state.fileHandle.createWritable();
+      await writable.write(content);
+      await writable.close();
+
+      state.originalContent = content;
+      setModified(false);
+      return;
+    } catch (error) {
+      console.warn("기존 파일 직접 저장 실패:", error);
+      showError("기존 파일에 직접 저장하지 못했습니다. 다른 이름으로 저장을 시도합니다.");
+    }
+  }
+
+  await saveAsFile();
+}
+
+async function saveAsFile() {
+  const content = editor.value;
+  const suggestedName = getBaseFileName();
+
+  if ("showSaveFilePicker" in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{
+          description: "Markdown 파일",
+          accept: { "text/markdown": [".md"] }
+        }]
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+
+      state.fileHandle = handle;
+      state.fileName = handle.name;
+      state.originalContent = content;
+      state.isNewDocument = false;
+      filename.textContent = handle.name;
+      setModified(false);
+      return;
+    } catch (error) {
+      if (error && error.name === "AbortError") return;
+      console.warn("File System Access API 저장 실패:", error);
+    }
+  }
+
+  downloadMarkdown(content, suggestedName);
+  state.fileName = suggestedName;
+  state.originalContent = content;
+  filename.textContent = suggestedName;
+  setModified(false);
+}
+
+function downloadMarkdown(content, name) {
+  const blob = new Blob(["\ufeff", content], {
+    type: "text/markdown;charset=utf-8"
+  });
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = name.endsWith(".md") ? name : `${name}.md`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function createNewDocument() {
+  if (state.modified && !confirm("저장되지 않은 변경사항이 있습니다. 새 문서를 만들면 변경사항이 사라집니다. 계속하시겠습니까?")) {
+    return;
+  }
+
+  setDocument("", "새 문서.md", null);
+  state.isNewDocument = true;
+  editor.focus();
+}
+
+function showError(message) {
+  status.textContent = message;
+  status.classList.add("modified");
+
+  setTimeout(() => {
+    if (!state.modified) {
+      status.textContent = "저장됨";
+      status.classList.remove("modified");
+    }
+  }, 3500);
+}
+
+editor.addEventListener("input", () => {
+  setModified(editor.value !== state.originalContent);
+  updateViewer();
+});
+
+editor.addEventListener("keydown", (event) => {
+  // Tab을 실제 탭 대신 2칸 들여쓰기로 처리
+  if (event.key === "Tab") {
+    event.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.setRangeText("  ", start, end, "end");
+    editor.dispatchEvent(new Event("input"));
+  }
+});
+
+openBtn.addEventListener("click", openFileWithPicker);
+fileInput.addEventListener("change", handleFallbackFile);
+newBtn.addEventListener("click", createNewDocument);
+saveBtn.addEventListener("click", saveCurrentFile);
+saveAsBtn.addEventListener("click", saveAsFile);
+
+document.addEventListener("keydown", (event) => {
+  const modifier = event.ctrlKey || event.metaKey;
+  if (!modifier) return;
+
+  if (event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    saveCurrentFile();
+  } else if (event.key.toLowerCase() === "o") {
+    event.preventDefault();
+    openFileWithPicker();
+  } else if (event.key.toLowerCase() === "n") {
+    event.preventDefault();
+    createNewDocument();
+  }
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (!state.modified) return;
+  event.preventDefault();
+  event.returnValue = "";
+});
+
+// 드래그 앤 드롭으로 Markdown 파일 열기
+let dragDepth = 0;
+
+document.addEventListener("dragenter", (event) => {
+  event.preventDefault();
+  dragDepth++;
+  dropOverlay.classList.remove("hidden");
+});
+
+document.addEventListener("dragover", (event) => {
+  event.preventDefault();
+});
+
+document.addEventListener("dragleave", (event) => {
+  event.preventDefault();
+  dragDepth--;
+  if (dragDepth <= 0) {
+    dragDepth = 0;
+    dropOverlay.classList.add("hidden");
+  }
+});
+
+document.addEventListener("drop", async (event) => {
+  event.preventDefault();
+  dragDepth = 0;
+  dropOverlay.classList.add("hidden");
+
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+
+  if (state.modified && !confirm("저장되지 않은 변경사항이 있습니다. 파일을 열면 변경사항이 사라집니다. 계속하시겠습니까?")) {
+    return;
+  }
+
+  try {
+    const content = await file.text();
+    setDocument(content, file.name, null);
+  } catch (error) {
+    showError("드롭한 파일을 읽을 수 없습니다.");
+    console.error(error);
+  }
+});
+
+// Viewer와 Editor 사이의 구분선 드래그
+let resizing = false;
+
+resizer.addEventListener("pointerdown", (event) => {
+  if (window.innerWidth <= 760) return;
+  resizing = true;
+  resizer.classList.add("dragging");
+  resizer.setPointerCapture(event.pointerId);
+  document.body.style.cursor = "col-resize";
+  document.body.style.userSelect = "none";
+});
+
+resizer.addEventListener("pointermove", (event) => {
+  if (!resizing) return;
+
+  const rect = workspace.getBoundingClientRect();
+  const percentage = ((event.clientX - rect.left) / rect.width) * 100;
+  const clamped = Math.min(80, Math.max(20, percentage));
+
+  viewerPane.style.width = `${clamped}%`;
+  editorPane.style.width = `${100 - clamped}%`;
+});
+
+resizer.addEventListener("pointerup", (event) => {
+  resizing = false;
+  resizer.classList.remove("dragging");
+  document.body.style.cursor = "";
+  document.body.style.userSelect = "";
+  try {
+    resizer.releasePointerCapture(event.pointerId);
+  } catch (_) {}
+});
+
+window.addEventListener("resize", () => {
+  if (window.innerWidth <= 760) {
+    viewerPane.style.width = "";
+    editorPane.style.width = "";
+  } else if (!viewerPane.style.width) {
+    viewerPane.style.width = "50%";
+    editorPane.style.width = "50%";
+  }
+});
+
+// 초기 상태
+updateDocumentInfo();
+renderMarkdown("");
+</script>
+</body>
+</html>
