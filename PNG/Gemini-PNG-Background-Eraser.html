@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PNG 투명화 배경 제거기 (Magic Wand)</title>
+    <style>
+        /* ==========================================================================
+           1. CSS Variables & Reset
+           ========================================================================== */
+        :root {
+            --bg-base: #1e1e24;
+            --bg-panel: #2b2d35;
+            --bg-hover: #3a3d47;
+            --bg-active: #4a4e5c;
+            --bg-input: #18191d;
+            
+            --accent-color: #0078d4;
+            --accent-hover: #106ebe;
+            --accent-disabled: #38424d;
+
+            --text-primary: #f3f3f3;
+            --text-secondary: #adadad;
+            --text-disabled: #666666;
+
+            --border-color: #3f424e;
+            --focus-ring: #4cc2ff;
+
+            --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --status-height: 28px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        /* ==========================================================================
+           2. Toolbar & Header
+           ========================================================================== */
+        header {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            padding: 8px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 16px;
+            z-index: 10;
+        }
+
+        .app-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 8px;
+            border-right: 1px solid var(--border-color);
+            padding-right: 16px;
+            height: 28px;
+        }
+
+        .app-title svg {
+            fill: var(--focus-ring);
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 20px;
+            background-color: var(--border-color);
+            margin: 0 4px;
+        }
+
+        /* Form Controls & Buttons */
+        button {
+            background-color: var(--bg-panel);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.15s ease;
+            height: 28px;
+            white-space: nowrap;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: var(--bg-hover);
+            border-color: #555867;
+        }
+
+        button:active:not(:disabled) {
+            background-color: var(--bg-active);
+        }
+
+        button:disabled {
+            color: var(--text-disabled);
+            background-color: transparent;
+            border-color: #33353d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        button.btn-primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        button.btn-primary:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+            border-color: var(--accent-hover);
+        }
+
+        button svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .control-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 90px;
+            height: 4px;
+            background: var(--bg-input);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--focus-ring);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .value-badge {
+            display: inline-block;
+            min-width: 24px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            accent-color: var(--accent-color);
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        /* Hidden File Input */
+        #fileInput {
+            display: none;
+        }
+
+        /* ==========================================================================
+           3. Workspace Area
+           ========================================================================== */
+        main {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background-color: #121316;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Checkerboard background for transparency visual */
+        .canvas-container {
+            position: relative;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            background-image: 
+                linear-gradient(45deg, #282828 25%, transparent 25%), 
+                linear-gradient(-45deg, #282828 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #282828 75%), 
+                linear-gradient(-45deg, transparent 75%, #282828 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            background-color: #1a1a1a;
+            border: 1px solid #333;
+            display: none; /* Shown when image loaded */
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            image-rendering: pixelated; /* Sharp zoom for pixel editing */
+        }
+
+        /* Empty State Placeholder */
+        .drop-zone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            padding: 40px;
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            max-width: 480px;
+            width: 90%;
+            text-align: center;
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--focus-ring);
+            color: var(--text-primary);
+            background-color: rgba(76, 194, 255, 0.05);
+        }
+
+        .drop-zone svg {
+            width: 48px;
+            height: 48px;
+            fill: currentColor;
+            opacity: 0.8;
+        }
+
+        .drop-zone-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .drop-zone-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Processing Overlay */
+        .processing-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .processing-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: var(--focus-ring);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Modal Confirmation Dialog */
+        .modal-backdrop {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            width: 360px;
+            padding: 20px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+        }
+
+        .modal-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        /* ==========================================================================
+           4. Status Bar
+           ========================================================================== */
+        footer {
+            height: var(--status-height);
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            z-index: 10;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-right: 1px solid var(--border-color);
+            height: 100%;
+            white-space: nowrap;
+        }
+
+        .status-item:first-child {
+            padding-left: 0;
+        }
+
+        .status-item:last-child {
+            border-right: none;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .status-msg {
+            color: var(--focus-ring);
+        }
+
+        .status-msg.error {
+            color: #ff6b6b;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 850px) {
+            header {
+                padding: 6px 10px;
+            }
+            .app-title span {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Toolbar -->
+    <header>
+        <div class="app-title">
+            <svg viewBox="0 0 24 24"><path d="M7.5,2C4,2 2,4 2,7.5V16.5C2,20 4,22 7.5,22H16.5C20,22 22,20 22,16.5V7.5C22,4 20,2 16.5,2H7.5M11.5,6A1.5,1.5 0 0,1 13,7.5A1.5,1.5 0 0,1 11.5,9A1.5,1.5 0 0,1 10,7.5A1.5,1.5 0 0,1 11.5,6M6.5,10A1.5,1.5 0 0,1 8,11.5A1.5,1.5 0 0,1 6.5,13A1.5,1.5 0 0,1 5,11.5A1.5,1.5 0 0,1 6.5,10M17.5,10A1.5,1.5 0 0,1 19,11.5A1.5,1.5 0 0,1 17.5,13A1.5,1.5 0 0,1 16,11.5A1.5,1.5 0 0,1 17.5,10M12,13.5A2.5,2.5 0 0,1 14.5,16A2.5,2.5 0 0,1 12,18.5A2.5,2.5 0 0,1 9.5,16A2.5,2.5 0 0,1 12,13.5Z"/></svg>
+            <span>투명 배경 편집기</span>
+        </div>
+
+        <!-- File Ops -->
+        <div class="toolbar-group">
+            <button id="btnOpen" title="PNG 이미지 열기 (Ctrl+O)">
+                <svg viewBox="0 0 24 24"><path d="M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21M4,8V18H19V8H4Z"/></svg>
+                열기
+            </button>
+            <button id="btnSave" class="btn-primary" disabled title="PNG 저장 (Ctrl+S)">
+                <svg viewBox="0 0 24 24"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg>
+                저장
+            </button>
+            <input type="file" id="fileInput" accept="image/png">
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <!-- Undo / Redo / Reset -->
+        <div class="toolbar-group">
+            <button id="btnUndo" disabled title="실행 취소 (Ctrl+Z)">
+                <svg viewBox="0 0 24 24"><path d="M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.15,8 12.5,8Z"/></svg>
+                실행 취소
+            </button>
+            <button id="btnRedo" disabled title="다시 실행 (Ctrl+Y)">
+                <svg viewBox="0 0 24 24"><path d="M18.4,10.6C16.55,9 14.15,8 11.5,8C6.85,8 2.92,11.03 1.53,15.22L3.9,16C4.95,12.81 7.96,10.5 11.5,10.5C13.46,10.5 15.23,11.22 16.62,12.38L13,16H22V7L18.4,10.6Z"/></svg>
+                다시 실행
+            </button>
+            <button id="btnReset" disabled title="원본 이미지로 복원">
+                <svg viewBox="0 0 24 24"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                초기화
+            </button>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <!-- Magic Wand Controls -->
+        <div class="toolbar-group">
+            <div class="control-label">
+                <span>감도:</span>
+                <input type="range" id="toleranceRange" min="0" max="100" value="20">
+                <span id="toleranceValue" class="value-badge">20</span>
+            </div>
+            <label class="checkbox-label" style="margin-left: 8px;">
+                <input type="checkbox" id="chkContiguous" checked>
+                인접 영역만 선택
+            </label>
+        </div>
+
+        <div class="toolbar-separator"></div>
+
+        <!-- Zoom Controls -->
+        <div class="toolbar-group">
+            <button id="btnZoomOut" disabled title="축소">-</button>
+            <span id="zoomValue" class="value-badge" style="min-width: 45px; text-align: center;">100%</span>
+            <button id="btnZoomIn" disabled title="확대">+</button>
+            <button id="btnZoomFit" disabled title="화면 맞춤">화면 맞춤</button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main id="workspace">
+        <!-- Empty Drop Zone -->
+        <div class="drop-zone" id="dropZone">
+            <svg viewBox="0 0 24 24"><path d="M19.35,10.04C18.67,6.59 15.64,4 12,4C9.11,4 6.6,5.64 5.35,8.04C2.34,8.36 0,10.91 0,14A6,6 0 0,0 6,20H19A5,5 0 0,0 24,15C24,12.36 21.95,10.22 19.35,10.04M14,13V17H10V13H7L12,8L17,13H14Z"/></svg>
+            <div>
+                <div class="drop-zone-title">PNG 파일을 열거나 이곳으로 드래그하세요.</div>
+                <div class="drop-zone-sub">서버 업로드 없이 브라우저에서 안전하게 처리됩니다.</div>
+            </div>
+        </div>
+
+        <!-- Interactive Canvas Area -->
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="imageCanvas"></canvas>
+        </div>
+
+        <!-- Loading Overlay for Heavy Operations -->
+        <div class="processing-overlay" id="processingOverlay">
+            <div class="spinner"></div>
+            <div style="font-weight: 500;">처리 중입니다...</div>
+        </div>
+    </main>
+
+    <!-- Footer Status Bar -->
+    <footer>
+        <div class="status-item" id="statusFilename">파일 없음</div>
+        <div class="status-item" id="statusDimensions">- × -</div>
+        <div class="status-item" id="statusZoom">100%</div>
+        <div class="status-item" id="statusPixels">투명: -</div>
+        <div class="status-item" id="statusMessage">준비 완료</div>
+    </footer>
+
+    <!-- Custom Modal Dialog -->
+    <div class="modal-backdrop" id="resetModal">
+        <div class="modal-box">
+            <div class="modal-title">이미지 초기화</div>
+            <div class="modal-body">모든 편집 내용을 취소하고 원본 이미지 상태로 복원하시겠습니까?</div>
+            <div class="modal-actions">
+                <button id="btnModalCancel">취소</button>
+                <button id="btnModalConfirm" class="btn-primary">초기화</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        /**
+         * PNG Magic Wand Background Remover
+         * Vanilla JS Implementation obeying requirements & separation of concerns.
+         */
+
+        // ==========================================================================
+        // 1. Application State & Storage
+        // ==========================================================================
+        const state = {
+            file: null,
+            filename: '',
+            width: 0,
+            height: 0,
+            
+            // Image Buffers
+            originalImageData: null, // Initial loaded state
+            currentImageData: null,  // Active edited state
+            
+            // History Management
+            undoStack: [],           // Stack of ImageData snapshots (Max 15)
+            redoStack: [],           // Stack of ImageData snapshots
+            maxStackSize: 15,
+
+            // View Transformation
+            scale: 1.0,              // Current zoom factor
+            
+            // Magic Wand Settings
+            tolerance: 20,           // 0 to 100
+            contiguous: true,        // Flood fill if true, global color match if false
+            
+            // Execution Guard
+            isProcessing: false
+        };
+
+        // ==========================================================================
+        // 2. DOM Elements Reference
+        // ==========================================================================
+        const DOM = {
+            // Header & Controls
+            btnOpen: document.getElementById('btnOpen'),
+            btnSave: document.getElementById('btnSave'),
+            btnUndo: document.getElementById('btnUndo'),
+            btnRedo: document.getElementById('btnRedo'),
+            btnReset: document.getElementById('btnReset'),
+            fileInput: document.getElementById('fileInput'),
+            
+            toleranceRange: document.getElementById('toleranceRange'),
+            toleranceValue: document.getElementById('toleranceValue'),
+            chkContiguous: document.getElementById('chkContiguous'),
+            
+            btnZoomOut: document.getElementById('btnZoomOut'),
+            btnZoomIn: document.getElementById('btnZoomIn'),
+            btnZoomFit: document.getElementById('btnZoomFit'),
+            zoomValue: document.getElementById('zoomValue'),
+            
+            // Workspace
+            workspace: document.getElementById('workspace'),
+            dropZone: document.getElementById('dropZone'),
+            canvasContainer: document.getElementById('canvasContainer'),
+            canvas: document.getElementById('imageCanvas'),
+            ctx: document.getElementById('imageCanvas').getContext('2d', { willReadFrequently: true }),
+            processingOverlay: document.getElementById('processingOverlay'),
+            
+            // Status Bar
+            statusFilename: document.getElementById('statusFilename'),
+            statusDimensions: document.getElementById('statusDimensions'),
+            statusZoom: document.getElementById('statusZoom'),
+            statusPixels: document.getElementById('statusPixels'),
+            statusMessage: document.getElementById('statusMessage'),
+            
+            // Modal
+            resetModal: document.getElementById('resetModal'),
+            btnModalCancel: document.getElementById('btnModalCancel'),
+            btnModalConfirm: document.getElementById('btnModalConfirm')
+        };
+
+        // ==========================================================================
+        // 3. Core Image Processing Algorithms (Magic Wand & Flood Fill)
+        // ==========================================================================
+
+        /**
+         * Calculates Euclidean RGB distance normalized to 0-100 range.
+         * Max RGB Euclidean distance = sqrt(255^2 + 255^2 + 255^2) ≈ 441.67
+         */
+        function calculateRgbDistance(r1, g1, b1, r2, g2, b2) {
+            const dr = r1 - r2;
+            const dg = g1 - g2;
+            const db = b1 - b2;
+            const dist = Math.sqrt(dr * dr + dg * dg + db * db);
+            return (dist / 441.6729559300637) * 100;
+        }
+
+        /**
+         * Magic Wand Core Function
+         * Designed to be easily decoupled into a Web Worker if needed.
+         * Modifies pixel array in-place.
+         * @returns {number} Count of pixels changed to transparent.
+         */
+        function processMagicWand(imageData, startX, startY, tolerance, contiguous) {
+            const width = imageData.width;
+            const height = imageData.height;
+            const data = imageData.data;
+
+            const startIndex = (startY * width + startX) * 4;
+            const targetR = data[startIndex];
+            const targetG = data[startIndex + 1];
+            const targetB = data[startIndex + 2];
+            const targetA = data[startIndex + 3];
+
+            // If already completely transparent, no action
+            if (targetA === 0) return 0;
+
+            let changedCount = 0;
+
+            if (!contiguous) {
+                // Global Color Replacement across entire image
+                const totalPixels = width * height;
+                for (let i = 0; i < totalPixels; i++) {
+                    const idx = i * 4;
+                    // Skip pixels already transparent
+                    if (data[idx + 3] === 0) continue;
+
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+
+                    if (calculateRgbDistance(targetR, targetG, targetB, r, g, b) <= tolerance) {
+                        data[idx + 3] = 0; // Alpha set to transparent
+                        changedCount++;
+                    }
+                }
+            } else {
+                // BFS Flood Fill for connected contiguous regions (4-way direction)
+                const visited = new Uint8Array(width * height);
+                // Queue storing pixel indices
+                const queue = new Int32Array(width * height);
+                let head = 0;
+                let tail = 0;
+
+                const startPixelIdx = startY * width + startX;
+                queue[tail++] = startPixelIdx;
+                visited[startPixelIdx] = 1;
+
+                while (head < tail) {
+                    const pixelIdx = queue[head++];
+                    const px = pixelIdx % width;
+                    const py = (pixelIdx / width) | 0; // Fast floor
+                    const dataIdx = pixelIdx * 4;
+
+                    // Execute color check
+                    const r = data[dataIdx];
+                    const g = data[dataIdx + 1];
+                    const b = data[dataIdx + 2];
+
+                    if (calculateRgbDistance(targetR, targetG, targetB, r, g, b) <= tolerance) {
+                        data[dataIdx + 3] = 0; // Transparent
+                        changedCount++;
+
+                        // Check 4 neighbors (Up, Right, Down, Left)
+                        // Top
+                        if (py > 0) {
+                            const nIdx = pixelIdx - width;
+                            if (!visited[nIdx] && data[nIdx * 4 + 3] !== 0) {
+                                visited[nIdx] = 1;
+                                queue[tail++] = nIdx;
+                            }
+                        }
+                        // Bottom
+                        if (py < height - 1) {
+                            const nIdx = pixelIdx + width;
+                            if (!visited[nIdx] && data[nIdx * 4 + 3] !== 0) {
+                                visited[nIdx] = 1;
+                                queue[tail++] = nIdx;
+                            }
+                        }
+                        // Left
+                        if (px > 0) {
+                            const nIdx = pixelIdx - 1;
+                            if (!visited[nIdx] && data[nIdx * 4 + 3] !== 0) {
+                                visited[nIdx] = 1;
+                                queue[tail++] = nIdx;
+                            }
+                        }
+                        // Right
+                        if (px < width - 1) {
+                            const nIdx = pixelIdx + 1;
+                            if (!visited[nIdx] && data[nIdx * 4 + 3] !== 0) {
+                                visited[nIdx] = 1;
+                                queue[tail++] = nIdx;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return changedCount;
+        }
+
+        /**
+         * Helper to clone an ImageData instance
+         */
+        function cloneImageData(imageData) {
+            return new ImageData(
+                new Uint8ClampedArray(imageData.data),
+                imageData.width,
+                imageData.height
+            );
+        }
+
+        /**
+         * Counts transparent pixels in ImageData
+         */
+        function countTransparentPixels(imageData) {
+            const data = imageData.data;
+            let count = 0;
+            for (let i = 3; i < data.length; i += 4) {
+                if (data[i] === 0) count++;
+            }
+            return count;
+        }
+
+        // ==========================================================================
+        // 4. State Management & Undo / Redo
+        // ==========================================================================
+
+        function pushUndoState() {
+            if (!state.currentImageData) return;
+            
+            // Save current state snapshot before new mutation
+            state.undoStack.push(cloneImageData(state.currentImageData));
+            if (state.undoStack.length > state.maxStackSize) {
+                state.undoStack.shift(); // Keep within limit
+            }
+            // Clear redo stack on new action
+            state.redoStack = [];
+            updateControlStates();
+        }
+
+        function undo() {
+            if (state.undoStack.length === 0) return;
+
+            // Move current state to redo
+            state.redoStack.push(cloneImageData(state.currentImageData));
+
+            // Restore previous state
+            state.currentImageData = state.undoStack.pop();
+            renderCanvas();
+            updateControlStates();
+            updateStatusDetails("작업을 실행 취소했습니다.");
+        }
+
+        function redo() {
+            if (state.redoStack.length === 0) return;
+
+            // Move current state to undo
+            state.undoStack.push(cloneImageData(state.currentImageData));
+
+            // Restore state from redo
+            state.currentImageData = state.redoStack.pop();
+            renderCanvas();
+            updateControlStates();
+            updateStatusDetails("작업을 다시 실행했습니다.");
+        }
+
+        function resetToOriginal() {
+            if (!state.originalImageData) return;
+
+            pushUndoState();
+            state.currentImageData = cloneImageData(state.originalImageData);
+            renderCanvas();
+            updateControlStates();
+            updateStatusDetails("원본 이미지 상태로 초기화했습니다.");
+        }
+
+        // ==========================================================================
+        // 5. Canvas Rendering & Scaling Logic
+        // ==========================================================================
+
+        function renderCanvas() {
+            if (!state.currentImageData) return;
+
+            // Update underlying canvas dimensions
+            DOM.canvas.width = state.width;
+            DOM.canvas.height = state.height;
+
+            // Render current pixel data
+            DOM.ctx.putImageData(state.currentImageData, 0, 0);
+
+            // Apply zoom scaling via CSS display size
+            const displayWidth = Math.round(state.width * state.scale);
+            const displayHeight = Math.round(state.height * state.scale);
+
+            DOM.canvas.style.width = displayWidth + 'px';
+            DOM.canvas.style.height = displayHeight + 'px';
+
+            DOM.canvasContainer.style.width = displayWidth + 'px';
+            DOM.canvasContainer.style.height = displayHeight + 'px';
+        }
+
+        function setScale(newScale) {
+            // Clamp scale between 5% and 2000%
+            state.scale = Math.max(0.05, Math.min(20.0, newScale));
+            const zoomPercent = Math.round(state.scale * 100);
+            
+            DOM.zoomValue.textContent = zoomPercent + '%';
+            DOM.statusZoom.textContent = zoomPercent + '%';
+
+            if (state.currentImageData) {
+                renderCanvas();
+            }
+        }
+
+        function zoomFit() {
+            if (!state.width || !state.height) return;
+
+            const workspaceRect = DOM.workspace.getBoundingClientRect();
+            const padding = 40; // Workspace padding
+            const availWidth = workspaceRect.width - padding;
+            const availHeight = workspaceRect.height - padding;
+
+            if (availWidth <= 0 || availHeight <= 0) return;
+
+            const scaleX = availWidth / state.width;
+            const scaleY = availHeight / state.height;
+            const fitScale = Math.min(scaleX, scaleY, 1.0); // Don't over-scale small images beyond 100% on fit
+
+            setScale(fitScale);
+            updateStatusDetails("화면에 맞게 확대 비율을 조정했습니다.");
+        }
+
+        // ==========================================================================
+        // 6. UI Update & Control Helpers
+        // ==========================================================================
+
+        function updateControlStates() {
+            const hasImage = !!state.currentImageData;
+
+            DOM.btnSave.disabled = !hasImage;
+            DOM.btnUndo.disabled = state.undoStack.length === 0;
+            DOM.btnRedo.disabled = state.redoStack.length === 0;
+            DOM.btnReset.disabled = !hasImage;
+
+            DOM.btnZoomIn.disabled = !hasImage;
+            DOM.btnZoomOut.disabled = !hasImage;
+            DOM.btnZoomFit.disabled = !hasImage;
+
+            if (hasImage) {
+                DOM.dropZone.style.display = 'none';
+                DOM.canvasContainer.style.display = 'block';
+            } else {
+                DOM.dropZone.style.display = 'flex';
+                DOM.canvasContainer.style.display = 'none';
+            }
+        }
+
+        function updateStatusDetails(message = '') {
+            if (!state.currentImageData) {
+                DOM.statusFilename.textContent = '파일 없음';
+                DOM.statusDimensions.textContent = '- × -';
+                DOM.statusPixels.textContent = '투명: -';
+                DOM.statusMessage.textContent = message || 'PNG 이미지를 열어주세요.';
+                return;
+            }
+
+            DOM.statusFilename.textContent = state.filename;
+            DOM.statusDimensions.textContent = `${state.width} × ${state.height}px`;
+            
+            const transparentCount = countTransparentPixels(state.currentImageData);
+            const totalPixels = state.width * state.height;
+            const transPercent = ((transparentCount / totalPixels) * 100).toFixed(1);
+            DOM.statusPixels.textContent = `투명: ${transparentCount.toLocaleString()}px (${transPercent}%)`;
+
+            if (message) {
+                DOM.statusMessage.textContent = message;
+            }
+        }
+
+        function showProcessing(show) {
+            state.isProcessing = show;
+            if (show) {
+                DOM.processingOverlay.classList.add('active');
+            } else {
+                DOM.processingOverlay.classList.remove('active');
+            }
+        }
+
+        // ==========================================================================
+        // 7. File Loading & Saving
+        // ==========================================================================
+
+        function loadPNGFile(file) {
+            if (!file) return;
+
+            // Validate PNG file type
+            if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+                updateStatusDetails('오류: PNG 이미지 파일만 불러올 수 있습니다.');
+                DOM.statusMessage.classList.add('error');
+                return;
+            }
+            DOM.statusMessage.classList.remove('error');
+
+            showProcessing(true);
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const img = new Image();
+                img.onload = function () {
+                    state.file = file;
+                    state.filename = file.name;
+                    state.width = img.width;
+                    state.height = img.height;
+
+                    // Draw to offscreen canvas to obtain ImageData
+                    const offCanvas = document.createElement('canvas');
+                    offCanvas.width = img.width;
+                    offCanvas.height = img.height;
+                    const offCtx = offCanvas.getContext('2d');
+                    offCtx.drawImage(img, 0, 0);
+
+                    const imgData = offCtx.getImageData(0, 0, img.width, img.height);
+                    
+                    state.originalImageData = imgData;
+                    state.currentImageData = cloneImageData(imgData);
+
+                    // Reset History
+                    state.undoStack = [];
+                    state.redoStack = [];
+
+                    updateControlStates();
+                    zoomFit();
+                    updateStatusDetails('이미지를 성공적으로 불러왔습니다.');
+                    showProcessing(false);
+                };
+
+                img.onerror = function () {
+                    showProcessing(false);
+                    updateStatusDetails('오류: 이미지 파일을 손상되어 열 수 없습니다.');
+                    DOM.statusMessage.classList.add('error');
+                };
+
+                img.src = e.target.result;
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        function savePNGFile() {
+            if (!state.currentImageData) return;
+
+            // Generate clean export canvas without grid overlay
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = state.width;
+            exportCanvas.height = state.height;
+            const exportCtx = exportCanvas.getContext('2d');
+            exportCtx.putImageData(state.currentImageData, 0, 0);
+
+            exportCanvas.toBlob(function (blob) {
+                if (!blob) return;
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+
+                // Generate filename suffix _transparent.png
+                let saveName = state.filename || 'image.png';
+                if (saveName.toLowerCase().endsWith('.png')) {
+                    saveName = saveName.substring(0, saveName.length - 4) + '_transparent.png';
+                } else {
+                    saveName += '_transparent.png';
+                }
+
+                a.href = url;
+                a.download = saveName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                updateStatusDetails(`${saveName} 파일로 저장되었습니다.`);
+            }, 'image/png');
+        }
+
+        // ==========================================================================
+        // 8. Event Handlers & Interactivity
+        // ==========================================================================
+
+        // Magic Wand Click Interaction
+        DOM.canvas.addEventListener('click', function (e) {
+            if (!state.currentImageData || state.isProcessing) return;
+
+            const rect = DOM.canvas.getBoundingClientRect();
+            // Convert viewport click coordinates to actual image pixel coordinates
+            const clickX = Math.floor((e.clientX - rect.left) / state.scale);
+            const clickY = Math.floor((e.clientY - rect.top) / state.scale);
+
+            // Bounds check
+            if (clickX < 0 || clickX >= state.width || clickY < 0 || clickY >= state.height) return;
+
+            // Check if clicked pixel is already fully transparent
+            const idx = (clickY * state.width + clickX) * 4;
+            if (state.currentImageData.data[idx + 3] === 0) {
+                updateStatusDetails('이미 투명한 영역입니다.');
+                return;
+            }
+
+            // Save state before modification
+            pushUndoState();
+
+            // Run Magic Wand Algorithm asynchronously to allow spinner UI to update
+            showProcessing(true);
+            setTimeout(() => {
+                const changed = processMagicWand(
+                    state.currentImageData,
+                    clickX,
+                    clickY,
+                    state.tolerance,
+                    state.contiguous
+                );
+
+                renderCanvas();
+                showProcessing(false);
+
+                if (changed > 0) {
+                    updateStatusDetails(`${changed.toLocaleString()}개 픽셀을 투명하게 변경했습니다.`);
+                } else {
+                    updateStatusDetails('선택한 조건에 부합하는 영역이 없습니다.');
+                }
+            }, 10);
+        });
+
+        // Open & Drag-and-Drop Handling
+        DOM.btnOpen.addEventListener('click', () => DOM.fileInput.click());
+        DOM.dropZone.addEventListener('click', () => DOM.fileInput.click());
+
+        DOM.fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                loadPNGFile(e.target.files[0]);
+                e.target.value = ''; // Reset input
+            }
+        });
+
+        // Drag and drop setup
+        ['dragenter', 'dragover'].forEach(eventName => {
+            DOM.workspace.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                DOM.dropZone.classList.add('drag-over');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            DOM.workspace.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                DOM.dropZone.classList.remove('drag-over');
+            }, false);
+        });
+
+        DOM.workspace.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                loadPNGFile(files[0]);
+            }
+        });
+
+        // Tolerance Range Slider
+        DOM.toleranceRange.addEventListener('input', (e) => {
+            state.tolerance = parseInt(e.target.value, 10);
+            DOM.toleranceValue.textContent = state.tolerance;
+        });
+
+        // Contiguous Checkbox
+        DOM.chkContiguous.addEventListener('change', (e) => {
+            state.contiguous = e.target.checked;
+        });
+
+        // Undo / Redo / Save Buttons
+        DOM.btnUndo.addEventListener('click', undo);
+        DOM.btnRedo.addEventListener('click', redo);
+        DOM.btnSave.addEventListener('click', savePNGFile);
+
+        // Reset Modal Flow
+        DOM.btnReset.addEventListener('click', () => {
+            DOM.resetModal.classList.add('active');
+        });
+        DOM.btnModalCancel.addEventListener('click', () => {
+            DOM.resetModal.classList.remove('active');
+        });
+        DOM.btnModalConfirm.addEventListener('click', () => {
+            DOM.resetModal.classList.remove('active');
+            resetToOriginal();
+        });
+
+        // Zoom Controls
+        DOM.btnZoomIn.addEventListener('click', () => setScale(state.scale * 1.25));
+        DOM.btnZoomOut.addEventListener('click', () => setScale(state.scale / 1.25));
+        DOM.btnZoomFit.addEventListener('click', zoomFit);
+
+        // Mouse Wheel Navigation & Zooming
+        DOM.workspace.addEventListener('wheel', (e) => {
+            if (!state.currentImageData) return;
+
+            if (e.ctrlKey) {
+                // Ctrl + Wheel: Zoom In / Out
+                e.preventDefault();
+                const factor = e.deltaY < 0 ? 1.15 : 0.85;
+                setScale(state.scale * factor);
+            } else if (e.shiftKey) {
+                // Shift + Wheel: Horizontal Scroll
+                e.preventDefault();
+                DOM.workspace.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                const key = e.key.toLowerCase();
+                if (key === 'o') {
+                    e.preventDefault();
+                    DOM.fileInput.click();
+                } else if (key === 's') {
+                    e.preventDefault();
+                    if (state.currentImageData) savePNGFile();
+                } else if (key === 'z') {
+                    e.preventDefault();
+                    undo();
+                } else if (key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            }
+        });
+
+        // Window Resize Handling for Fit Zoom
+        window.addEventListener('resize', () => {
+            if (state.currentImageData) {
+                renderCanvas();
+            }
+        });
+
+        // Initial Control Setup
+        updateControlStates();
+        updateStatusDetails();
+    </script>
+</body>
+</html>

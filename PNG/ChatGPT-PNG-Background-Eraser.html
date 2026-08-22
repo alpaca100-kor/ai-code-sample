@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PNG 투명 배경 편집기</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;font-family:"Segoe UI","Malgun Gothic",sans-serif;background:#202020;color:#eee}
+body{display:flex;flex-direction:column}button,input{font:inherit}button{min-height:34px;padding:0 10px;border:1px solid #454545;border-radius:6px;background:#303030;color:#eee;cursor:pointer}button:hover:not(:disabled){background:#3b3b3b}button:disabled{opacity:.4;cursor:default}
+.toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px;background:#292929;border-bottom:1px solid #444}
+.title{font-weight:600;padding-right:12px;margin-right:5px;border-right:1px solid #444;white-space:nowrap}.sep{width:1px;height:25px;background:#444;margin:0 5px}
+.sensitivity{display:flex;align-items:center;gap:6px}.sensitivity label,.check{font-size:13px;color:#ccc}#tolerance{width:145px;accent-color:#4cc2ff}#toleranceValue{width:25px;text-align:right}
+.check{display:flex;align-items:center;gap:5px;white-space:nowrap}.check input{accent-color:#4cc2ff}.zoom{min-width:55px;text-align:center;color:#bbb}
+#workspace{position:relative;flex:1;min-height:0;overflow:hidden;background:#3c3c3c}
+#viewport{position:absolute;inset:0;overflow:auto;background:#3c3c3c}#viewport.dragover{outline:2px solid #4cc2ff;outline-offset:-2px}
+#wrap{display:none;position:relative}.canvas{display:block;position:absolute;left:0;top:0}
+#placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#999}
+.dropbox{padding:35px 45px;border:1px dashed #666;border-radius:10px}.dropbox strong{display:block;color:#ddd;margin-bottom:8px}
+#status{height:31px;flex:0 0 31px;padding:5px 9px;background:#292929;border-top:1px solid #444;color:#aaa;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0004;z-index:10}.busybox{padding:13px 18px;background:#222;border:1px solid #555;border-radius:8px}
+#file{display:none}
+@media(max-width:850px){.title{width:100%;border-right:0;border-bottom:1px solid #444;padding:0 0 7px}.toolbar{gap:5px}#tolerance{width:110px}}
+</style>
+</head>
+<body>
+<div class="toolbar">
+<div class="title">PNG 투명 배경 편집기</div>
+<button id="open">파일 열기</button><button id="save" disabled>저장</button><span class="sep"></span>
+<button id="undo" disabled>↶ 실행 취소</button><button id="redo" disabled>↷ 다시 실행</button><button id="reset" disabled>초기화</button><span class="sep"></span>
+<div class="sensitivity"><label for="tolerance">감도</label><input id="tolerance" type="range" min="0" max="100" value="20"><span id="toleranceValue">20</span></div>
+<label class="check"><input id="contiguous" type="checkbox" checked>인접 영역만 선택</label><span class="sep"></span>
+<button id="zoomOut">−</button><span id="zoom" class="zoom">100%</span><button id="zoomIn">+</button><button id="fit">화면 맞춤</button>
+</div>
+<div id="workspace">
+<div id="viewport">
+<div id="wrap"><canvas id="canvas"></canvas></div>
+</div>
+<div id="placeholder"><div class="dropbox"><strong>PNG 파일을 열어주세요</strong>파일 열기 버튼을 누르거나 PNG 파일을 이곳으로 드래그하세요.</div></div>
+<div id="busy"><div class="busybox">이미지를 처리하고 있습니다…</div></div>
+</div>
+<div id="status">PNG 파일을 열어주세요.</div>
+<input id="file" type="file" accept="image/png,.png">
+
+<script>
+"use strict";
+const MAX_UNDO=15,MIN_SCALE=.05,MAX_SCALE=20,MAX_DIST=Math.sqrt(255*255*3);
+const S={file:null,original:null,current:null,undo:[],redo:[],scale:1,tolerance:20,contiguous:true,busy:false};
+const $=id=>document.getElementById(id);
+const ui={open:$("open"),save:$("save"),undo:$("undo"),redo:$("redo"),reset:$("reset"),tol:$("tolerance"),tolVal:$("toleranceValue"),cont:$("contiguous"),zin:$("zoomIn"),zout:$("zoomOut"),zoom:$("zoom"),fit:$("fit"),file:$("file"),viewport:$("viewport"),wrap:$("wrap"),canvas:$("canvas"),placeholder:$("placeholder"),busy:$("busy"),status:$("status")};
+const ctx=ui.canvas.getContext("2d",{willReadFrequently:true});
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function clone(d){return new ImageData(new Uint8ClampedArray(d.data),d.width,d.height)}
+function threshold(){return S.tolerance/100*MAX_DIST}
+function busy(v){S.busy=v;ui.busy.style.display=v?"flex":"none";buttons()}
+function buttons(){const h=!!S.current;ui.save.disabled=!h||S.busy;ui.reset.disabled=!h||S.busy;ui.undo.disabled=!S.undo.length||S.busy;ui.redo.disabled=!S.redo.length||S.busy;ui.open.disabled=S.busy;ui.fit.disabled=!h||S.busy;ui.zin.disabled=!h||S.busy;ui.zout.disabled=!h||S.busy}
+function status(msg=""){if(!S.current){ui.status.textContent=msg||"PNG 파일을 열어주세요.";return}ui.status.textContent=`${S.file?S.file.name:"제목 없음"} | ${S.current.width} × ${S.current.height}px | 확대/축소 ${Math.round(S.scale*100)}%${msg?" | "+msg:""}`}
+function checker(){const c=document.createElement("canvas");c.width=c.height=20;const x=c.getContext("2d");x.fillStyle="#ebebeb";x.fillRect(0,0,20,20);x.fillStyle="#cdcdcd";x.fillRect(0,0,10,10);x.fillRect(10,10,10,10);return ctx.createPattern(c,"repeat")}const pattern=checker();
+function render(){if(!S.current)return;const d=S.current,w=Math.max(1,Math.round(d.width*S.scale)),h=Math.max(1,Math.round(d.height*S.scale));ui.canvas.width=w;ui.canvas.height=h;ui.canvas.style.width=w+"px";ui.canvas.style.height=h+"px";ui.wrap.style.width=w+"px";ui.wrap.style.height=h+"px";ctx.clearRect(0,0,w,h);ctx.fillStyle=pattern;ctx.fillRect(0,0,w,h);const c=document.createElement("canvas");c.width=d.width;c.height=d.height;c.getContext("2d").putImageData(d,0,0);ctx.imageSmoothingEnabled=S.scale<1;ctx.drawImage(c,0,0,w,h);ui.zoom.textContent=Math.round(S.scale*100)+"%";status()}
+function scale(v){S.scale=clamp(v,MIN_SCALE,MAX_SCALE);render()}
+function fit(){if(!S.current)return;const m=30,w=Math.max(1,ui.viewport.clientWidth-m),h=Math.max(1,ui.viewport.clientHeight-m);scale(Math.min(w/S.current.width,h/S.current.height))}
+function pushUndo(){S.undo.push(clone(S.current));if(S.undo.length>MAX_UNDO)S.undo.shift();S.redo=[];buttons()}
+function undo(){if(!S.undo.length)return;S.redo.push(clone(S.current));S.current=S.undo.pop();render();buttons();status("실행 취소했습니다.")}
+function redo(){if(!S.redo.length)return;S.undo.push(clone(S.current));S.current=S.redo.pop();render();buttons();status("다시 실행했습니다.")}
+function reset(){if(!S.original||!confirm("모든 편집 내용을 취소하고 원본 이미지로 되돌리시겠습니까?"))return;pushUndo();S.current=clone(S.original);render();buttons();status("원본 이미지로 초기화했습니다.")}
+function load(file){if(!file)return;if(file.type!=="image/png"&&!file.name.toLowerCase().endsWith(".png")){status("PNG 파일만 지원합니다.");return}const url=URL.createObjectURL(file),img=new Image();img.onload=()=>{try{const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const x=c.getContext("2d",{willReadFrequently:true});x.drawImage(img,0,0);const d=x.getImageData(0,0,c.width,c.height);S.file=file;S.original=clone(d);S.current=clone(d);S.undo=[];S.redo=[];S.scale=1;ui.placeholder.style.display="none";ui.wrap.style.display="block";render();buttons();status("이미지를 불러왔습니다.");requestAnimationFrame(fit)}catch(e){console.error(e);status("이미지를 불러오는 중 오류가 발생했습니다.")}finally{URL.revokeObjectURL(url)}};img.onerror=()=>{URL.revokeObjectURL(url);status("이미지를 읽을 수 없습니다.")};img.src=url}
+function point(e){const r=ui.canvas.getBoundingClientRect(),x=Math.floor((e.clientX-r.left)/S.scale),y=Math.floor((e.clientY-r.top)/S.scale);return x>=0&&y>=0&&x<S.current.width&&y<S.current.height?{x,y}:null}
+function idx(x,y,w){return(y*w+x)*4}
+function candidate(d,sx,sy,t){const {width:w,height:h,data}=d,n=w*h,m=new Uint8Array(n),si=idx(sx,sy,w),r=data[si],g=data[si+1],b=data[si+2],tt=t*t;for(let p=0,i=0;p<n;p++,i+=4){if(data[i+3]===0)continue;const dr=data[i]-r,dg=data[i+1]-g,db=data[i+2]-b;if(dr*dr+dg*dg+db*db<=tt)m[p]=1}return m}
+function flood(m,w,h,sx,sy){const out=new Uint8Array(m.length),seed=sy*w+sx;if(!m[seed])return out;const q=new Int32Array(m.length);let head=0,tail=0;q[tail++]=seed;out[seed]=1;while(head<tail){const p=q[head++],x=p%w,y=(p/w)|0;let n;if(x&&m[n=p-1]&&!out[n]){out[n]=1;q[tail++]=n}if(x<w-1&&m[n=p+1]&&!out[n]){out[n]=1;q[tail++]=n}if(y&&m[n=p-w]&&!out[n]){out[n]=1;q[tail++]=n}if(y<h-1&&m[n=p+w]&&!out[n]){out[n]=1;q[tail++]=n}}return out}
+async function magic(sx,sy){if(!S.current||S.busy)return;busy(true);try{await new Promise(r=>setTimeout(r,0));const d=S.current,m0=candidate(d,sx,sy,threshold());const m=S.contiguous?flood(m0,d.width,d.height,sx,sy):m0;let count=0;for(const v of m)count+=v;if(!count){status("선택된 영역이 없습니다.");return}pushUndo();const n=clone(d);for(let p=0,i=0;p<m.length;p++,i+=4)if(m[p])n.data[i+3]=0;S.current=n;render();status(count.toLocaleString()+"개 픽셀을 투명하게 변경했습니다.")}catch(e){console.error(e);status("이미지 처리 중 오류가 발생했습니다.")}finally{busy(false);buttons()}}
+function save(){if(!S.current||S.busy)return;const c=document.createElement("canvas");c.width=S.current.width;c.height=S.current.height;c.getContext("2d").putImageData(S.current,0,0);c.toBlob(blob=>{if(!blob){status("PNG 저장에 실패했습니다.");return}const base=S.file?S.file.name.replace(/\.png$/i,""):"untitled",name=base+"_transparent.png",url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);status("저장 완료: "+name)},"image/png")}
+ui.open.onclick=()=>{if(!S.busy)ui.file.click()};ui.file.onchange=e=>{load(e.target.files[0]);e.target.value=""};ui.save.onclick=save;ui.undo.onclick=undo;ui.redo.onclick=redo;ui.reset.onclick=reset;ui.zin.onclick=()=>scale(S.scale*1.25);ui.zout.onclick=()=>scale(S.scale/1.25);ui.fit.onclick=fit;
+ui.tol.oninput=e=>{S.tolerance=+e.target.value;ui.tolVal.textContent=S.tolerance};ui.cont.onchange=e=>S.contiguous=e.target.checked;ui.canvas.onclick=e=>{const p=point(e);if(p)magic(p.x,p.y)};
+ui.viewport.addEventListener("dragover",e=>{e.preventDefault();ui.viewport.classList.add("dragover")});ui.viewport.addEventListener("dragleave",()=>ui.viewport.classList.remove("dragover"));ui.viewport.addEventListener("drop",e=>{e.preventDefault();ui.viewport.classList.remove("dragover");load(e.dataTransfer.files[0])});
+ui.viewport.addEventListener("wheel",e=>{if(!S.current)return;if(e.ctrlKey||e.metaKey){e.preventDefault();const r=ui.canvas.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,ix=px/S.scale,iy=py/S.scale;const old=S.scale;scale(old*(e.deltaY<0?1.25:.8));ui.viewport.scrollLeft+=ix*S.scale-px;ui.viewport.scrollTop+=iy*S.scale-py}else if(e.shiftKey){e.preventDefault();ui.viewport.scrollLeft+=e.deltaY}},{passive:false});
+window.onkeydown=e=>{const mod=e.ctrlKey||e.metaKey,k=e.key.toLowerCase();if(mod&&k==="o"){e.preventDefault();if(!S.busy)ui.file.click()}else if(mod&&k==="s"){e.preventDefault();save()}else if(mod&&k==="z"&&!e.shiftKey){e.preventDefault();undo()}else if(mod&&(k==="y"||(k==="z"&&e.shiftKey))){e.preventDefault();redo()}};
+buttons();
+</script>
+</body>
+</html>
