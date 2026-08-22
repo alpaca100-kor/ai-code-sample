@@ -1,0 +1,1597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>알파카 이미지 편집기</title>
+  <style>
+    :root {
+      --bg-color: #f3f3f3;
+      --card-bg: #ffffff;
+      --text-color: #1a1a1a;
+      --text-muted: #5c5c5c;
+      --border-color: #e0e0e0;
+      --accent-color: #0067c0;
+      --accent-hover: #005a9e;
+      --accent-light: #e5f0fb;
+      --danger-color: #d13438;
+      --success-color: #107c41;
+      --warning-color: #d83b01;
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --radius: 8px;
+      --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #202020;
+        --card-bg: #2b2b2b;
+        --text-color: #ffffff;
+        --text-muted: #adadad;
+        --border-color: #383838;
+        --accent-color: #4cc2ff;
+        --accent-hover: #37b5f6;
+        --accent-light: #26384a;
+        --danger-color: #f1707b;
+        --success-color: #57d9a3;
+        --warning-color: #ff8c00;
+        --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.2);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    [data-theme="light"] {
+      --bg-color: #f3f3f3;
+      --card-bg: #ffffff;
+      --text-color: #1a1a1a;
+      --text-muted: #5c5c5c;
+      --border-color: #e0e0e0;
+      --accent-color: #0067c0;
+      --accent-hover: #005a9e;
+      --accent-light: #e5f0fb;
+      --danger-color: #d13438;
+      --success-color: #107c41;
+      --warning-color: #d83b01;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #202020;
+      --card-bg: #2b2b2b;
+      --text-color: #ffffff;
+      --text-muted: #adadad;
+      --border-color: #383838;
+      --accent-color: #4cc2ff;
+      --accent-hover: #37b5f6;
+      --accent-light: #26384a;
+      --danger-color: #f1707b;
+      --success-color: #57d9a3;
+      --warning-color: #ff8c00;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      line-height: 1.5;
+      user-select: none;
+    }
+
+    /* Header */
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .app-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .app-icon {
+      font-size: 28px;
+    }
+
+    .app-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .app-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* Layout */
+    .container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    sidebar {
+      width: 260px;
+      background-color: var(--card-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 12px;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .nav-section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin: 12px 8px 4px 8px;
+    }
+
+    .nav-button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-color);
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.9rem;
+      transition: background-color 0.15s ease;
+    }
+
+    .nav-button:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .nav-button:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-button.active {
+      background-color: var(--accent-light);
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    .nav-icon {
+      width: 20px;
+      text-align: center;
+      font-size: 1rem;
+    }
+
+    /* Workspace */
+    main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Form Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-color);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 0.875rem;
+      outline: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    select:focus {
+      border-color: var(--accent-color);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-color);
+    }
+
+    input[type="color"] {
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      height: 32px;
+      width: 48px;
+      cursor: pointer;
+      background: none;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-color);
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .btn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-primary {
+      background-color: var(--accent-color);
+      color: #ffffff;
+      border-color: var(--accent-color);
+    }
+
+    .btn-primary:hover {
+      background-color: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-group .btn {
+      flex: 1;
+    }
+
+    /* Image Drop Slot */
+    .drop-zone {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+      background-color: rgba(0, 0, 0, 0.01);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--accent-color);
+      background-color: var(--accent-light);
+    }
+
+    .drop-zone-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .drop-zone-preview {
+      max-height: 80px;
+      max-width: 100%;
+      object-fit: contain;
+      margin-top: 6px;
+      border-radius: 4px;
+    }
+
+    /* Preview Canvas Area */
+    .preview-container {
+      position: relative;
+      width: 100%;
+      min-height: 400px;
+      background-color: #1a1a1a;
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: 
+        linear-gradient(45deg, #2b2b2b 25%, transparent 25%), 
+        linear-gradient(-45deg, #2b2b2b 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #2b2b2b 75%), 
+        linear-gradient(-45deg, transparent 75%, #2b2b2b 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    .preview-wrapper {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      max-height: 600px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 600px;
+      object-fit: contain;
+    }
+
+    /* Crop Overlay Box */
+    .crop-overlay {
+      position: absolute;
+      border: 1px dashed #ffffff;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+      cursor: move;
+      box-sizing: border-box;
+      display: none;
+    }
+
+    .crop-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background-color: #ffffff;
+      border: 1px solid #000;
+      border-radius: 2px;
+    }
+
+    .handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+    .handle-n  { top: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+    .handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+    .handle-w  { top: calc(50% - 6px); left: -6px; cursor: ew-resize; }
+    .handle-e  { top: calc(50% - 6px); right: -6px; cursor: ew-resize; }
+    .handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+    .handle-s  { bottom: -6px; left: calc(50% - 6px); cursor: ns-resize; }
+    .handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+    /* Footer & Status Bar */
+    footer {
+      background-color: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .status-bar {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--success-color);
+    }
+
+    /* Information Box */
+    .info-box {
+      padding: 8px 12px;
+      background-color: var(--accent-light);
+      border-left: 4px solid var(--accent-color);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: var(--text-color);
+    }
+
+    .warning-box {
+      padding: 8px 12px;
+      background-color: rgba(216, 59, 1, 0.1);
+      border-left: 4px solid var(--warning-color);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: var(--text-color);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background-color: var(--card-bg);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 500px;
+      padding: 20px;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Responsive */
+    @media (max-width: 850px) {
+      .container {
+        flex-direction: column;
+      }
+      sidebar {
+        width: 100%;
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .nav-section-title { display: none; }
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="app-title-group">
+      <span class="app-icon">🦙</span>
+      <div>
+        <div class="app-title">알파카 이미지 편집기</div>
+        <div class="app-subtitle">웹 브라우저 기반 오프라인 이미지 변환 & 편집 도구</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="themeToggleBtn" title="다크/라이트 모드 전환">🌓 테마</button>
+      <button class="btn" id="helpBtn" title="도움말">❓ 도움말</button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="container">
+    <!-- Sidebar Navigation -->
+    <sidebar>
+      <div class="nav-section-title">병합 기능</div>
+      <button class="nav-button active" data-tab="merge-2h"><span class="nav-icon">⏸️</span> 2개 병합 (가로)</button>
+      <button class="nav-button" data-tab="merge-2v"><span class="nav-icon">⏹️</span> 2개 병합 (세로)</button>
+      <button class="nav-button" data-tab="merge-3h"><span class="nav-icon">⏸️</span> 3개 병합 (가로)</button>
+      <button class="nav-button" data-tab="merge-3v"><span class="nav-icon">⏹️</span> 3개 병합 (세로)</button>
+      <button class="nav-button" data-tab="merge-2x2"><span class="nav-icon">⊞</span> 4개 병합 (2×2)</button>
+
+      <div class="nav-section-title">편집 기능</div>
+      <button class="nav-button" data-tab="flip"><span class="nav-icon">🔄</span> 이미지 뒤집기</button>
+      <button class="nav-button" data-tab="rotate"><span class="nav-icon">🔃</span> 이미지 회전</button>
+      <button class="nav-button" data-tab="resize"><span class="nav-icon">📐</span> 크기 조정</button>
+      <button class="nav-button" data-tab="crop"><span class="nav-icon">✂️</span> 이미지 자르기</button>
+
+      <div class="nav-section-title">변환 기능</div>
+      <button class="nav-button" data-tab="ico"><span class="nav-icon">🖼️</span> ICO 파일 변환</button>
+    </sidebar>
+
+    <!-- Workspace -->
+    <main>
+      <div class="workspace-grid">
+        <!-- Options & Controls Panel -->
+        <div class="card">
+          <div class="card-title">
+            <span id="panelTitle">2개 이미지 병합 (가로)</span>
+          </div>
+
+          <!-- Dynamic Slots Input -->
+          <div id="imageSlotsContainer" class="form-group">
+            <!-- Dynamic Drop Zones injected by JS -->
+          </div>
+
+          <!-- Options Area -->
+          <div id="dynamicOptions">
+            <!-- Dynamic Controls injected by JS -->
+          </div>
+
+          <!-- Format & Quality Options -->
+          <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 12px;">
+            <label for="exportFormat">저장 형식</label>
+            <select id="exportFormat">
+              <option value="image/png">PNG</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/webp">WebP</option>
+              <option value="image/bmp">BMP</option>
+              <option value="image/x-icon">ICO</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="qualityGroup" style="display: none;">
+            <div style="display: flex; justify-content: space-between;">
+              <label for="exportQuality">저장 품질</label>
+              <span id="qualityVal" style="font-size: 0.85rem;">90%</span>
+            </div>
+            <input type="range" id="exportQuality" min="10" max="100" value="90">
+          </div>
+        </div>
+
+        <!-- Preview Area -->
+        <div class="card" style="align-self: stretch;">
+          <div class="card-title">
+            <span>미리보기</span>
+            <span id="previewMeta" style="font-size: 0.8rem; font-weight: normal; color: var(--text-muted);">0 x 0 px</span>
+          </div>
+
+          <div class="preview-container" id="previewContainer">
+            <div class="preview-wrapper" id="previewWrapper">
+              <canvas id="mainCanvas"></canvas>
+              <!-- Interactive Crop Overlay -->
+              <div class="crop-overlay" id="cropOverlay">
+                <div class="crop-handle handle-nw" data-handle="nw"></div>
+                <div class="crop-handle handle-n" data-handle="n"></div>
+                <div class="crop-handle handle-ne" data-handle="ne"></div>
+                <div class="crop-handle handle-w" data-handle="w"></div>
+                <div class="crop-handle handle-e" data-handle="e"></div>
+                <div class="crop-handle handle-sw" data-handle="sw"></div>
+                <div class="crop-handle handle-s" data-handle="s"></div>
+                <div class="crop-handle handle-se" data-handle="se"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="statusInfoBox" class="info-box">
+            이미지를 불러온 후 옵션을 조절하세요. (Ctrl+V 클립보드 붙여넣기 지원)
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer Actions & Status -->
+  <footer>
+    <div class="status-bar" id="statusBar" aria-live="polite">
+      <div class="status-indicator"></div>
+      <span id="statusText">준비 완료</span>
+    </div>
+    <div class="btn-group" style="max-width: 300px;">
+      <button class="btn" id="previewBtn">👁️ 미리보기</button>
+      <button class="btn btn-primary" id="downloadBtn">💾 저장 / 다운로드</button>
+    </div>
+  </footer>
+
+  <!-- Help Modal -->
+  <div class="modal-backdrop" id="helpModal">
+    <div class="modal">
+      <div class="card-title">
+        <span>알파카 이미지 편집기 도움말</span>
+        <button class="btn" style="padding: 2px 8px;" id="closeHelpBtn">✕</button>
+      </div>
+      <div style="font-size: 0.875rem; display: flex; flex-direction: column; gap: 8px;">
+        <p>• <b>안전한 웹 앱:</b> 이미지는 외부 서버로 전송되지 않고, 사용자의 브라우저 메모리 내부에서 오프라인으로 신속하게 처리됩니다.</p>
+        <p>• <b>드래그 & 드롭:</b> 이미지 슬롯에 파일을 끌어다 놓거나, 화면 전체에 `Ctrl + V`로 이미지 데이터를 바로 붙여넣을 수 있습니다.</p>
+        <p>• <b>ICO 변환기:</b> PNG/JPG/WebP 등의 이미지를 16x16부터 256x256까지 6개 표준 아이콘 사이즈를 포함한 멀티 해상도 `.ico` 파일로 정밀하게 변환합니다.</p>
+        <p>• <b>고품질 자르기:</b> 8방향 드래그 핸들을 사용하여 픽셀 단위 손실 없이 원본 해상도대로 정밀 크롭을 수행합니다.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * Alpaca Image Editor - Core Application State & Controllers
+     */
+    const CONFIG = {
+      MAX_CANVAS_DIM: 10000,
+      ICO_SIZES: [16, 32, 48, 64, 128, 256]
+    };
+
+    const STATE = {
+      activeTab: 'merge-2h',
+      images: [], // Selected HTMLImageElement instances
+      cropRect: { x: 0, y: 0, w: 0, h: 0 },
+      quality: 0.9,
+      exportFormat: 'image/png',
+      processedCanvas: null
+    };
+
+    // DOM Elements Cache
+    const DOM = {
+      navButtons: document.querySelectorAll('.nav-button'),
+      panelTitle: document.getElementById('panelTitle'),
+      imageSlotsContainer: document.getElementById('imageSlotsContainer'),
+      dynamicOptions: document.getElementById('dynamicOptions'),
+      exportFormat: document.getElementById('exportFormat'),
+      exportQuality: document.getElementById('exportQuality'),
+      qualityGroup: document.getElementById('qualityGroup'),
+      qualityVal: document.getElementById('qualityVal'),
+      mainCanvas: document.getElementById('mainCanvas'),
+      previewWrapper: document.getElementById('previewWrapper'),
+      previewMeta: document.getElementById('previewMeta'),
+      cropOverlay: document.getElementById('cropOverlay'),
+      statusText: document.getElementById('statusText'),
+      statusInfoBox: document.getElementById('statusInfoBox'),
+      previewBtn: document.getElementById('previewBtn'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      themeToggleBtn: document.getElementById('themeToggleBtn'),
+      helpBtn: document.getElementById('helpBtn'),
+      helpModal: document.getElementById('helpModal'),
+      closeHelpBtn: document.getElementById('closeHelpBtn')
+    };
+
+    // Tab Configuration Map
+    const TAB_CONFIGS = {
+      'merge-2h':  { title: '2개 이미지 병합 (가로)', slotCount: 2, type: 'merge' },
+      'merge-2v':  { title: '2개 이미지 병합 (세로)', slotCount: 2, type: 'merge' },
+      'merge-3h':  { title: '3개 이미지 병합 (가로)', slotCount: 3, type: 'merge' },
+      'merge-3v':  { title: '3개 이미지 병합 (세로)', slotCount: 3, type: 'merge' },
+      'merge-2x2': { title: '4개 이미지 병합 (2×2 격자)', slotCount: 4, type: 'merge' },
+      'flip':      { title: '이미지 뒤집기', slotCount: 1, type: 'flip' },
+      'rotate':    { title: '이미지 회전', slotCount: 1, type: 'rotate' },
+      'resize':    { title: '이미지 크기 조정', slotCount: 1, type: 'resize' },
+      'crop':      { title: '이미지 자르기', slotCount: 1, type: 'crop' },
+      'ico':       { title: 'ICO 파비콘 파일 변환', slotCount: 1, type: 'ico' }
+    };
+
+    /* ==========================================
+       1. INITIALIZATION & EVENT HANDLERS
+       ========================================== */
+
+    function initApp() {
+      bindEvents();
+      loadSettings();
+      switchTab('merge-2h');
+    }
+
+    function bindEvents() {
+      // Sidebar Navigation
+      DOM.navButtons.forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      // Format & Quality Events
+      DOM.exportFormat.addEventListener('change', (e) => {
+        STATE.exportFormat = e.target.value;
+        const isLossy = ['image/jpeg', 'image/webp'].includes(STATE.exportFormat);
+        DOM.qualityGroup.style.display = isLossy ? 'flex' : 'none';
+        saveSettings();
+      });
+
+      DOM.exportQuality.addEventListener('input', (e) => {
+        STATE.quality = parseInt(e.target.value) / 100;
+        DOM.qualityVal.textContent = `${e.target.value}%`;
+        saveSettings();
+      });
+
+      // Actions
+      DOM.previewBtn.addEventListener('click', renderPreview);
+      DOM.downloadBtn.addEventListener('click', downloadResult);
+
+      // Clipboard Global Paste
+      window.addEventListener('paste', handleGlobalPaste);
+
+      // Theme & Modal
+      DOM.themeToggleBtn.addEventListener('click', toggleTheme);
+      DOM.helpBtn.addEventListener('click', () => DOM.helpModal.classList.add('show'));
+      DOM.closeHelpBtn.addEventListener('click', () => DOM.helpModal.classList.remove('show'));
+      DOM.helpModal.addEventListener('click', (e) => {
+        if (e.target === DOM.helpModal) DOM.helpModal.classList.remove('show');
+      });
+
+      // Keyboard Accessibility
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') DOM.helpModal.classList.remove('show');
+      });
+    }
+
+    /* ==========================================
+       2. TAB SWITCHING & DYNAMIC UI BUILDER
+       ========================================== */
+
+    function switchTab(tabKey) {
+      STATE.activeTab = tabKey;
+      const config = TAB_CONFIGS[tabKey];
+
+      // Highlight active nav
+      DOM.navButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabKey);
+      });
+
+      DOM.panelTitle.textContent = config.title;
+
+      // Adjust image slots
+      STATE.images = STATE.images.slice(0, config.slotCount);
+      renderImageSlots(config.slotCount);
+
+      // Render tab-specific options
+      renderDynamicOptions(config.type);
+
+      // Special overrides
+      if (config.type === 'ico') {
+        DOM.exportFormat.value = 'image/x-icon';
+        DOM.exportFormat.disabled = true;
+      } else {
+        DOM.exportFormat.disabled = false;
+      }
+
+      DOM.exportFormat.dispatchEvent(new Event('change'));
+      DOM.cropOverlay.style.display = 'none';
+      setStatus('기능 전환 완료. 이미지를 선택해주세요.', 'normal');
+      renderPreview();
+    }
+
+    function renderImageSlots(count) {
+      DOM.imageSlotsContainer.innerHTML = '';
+      for (let i = 0; i < count; i++) {
+        const slotDiv = document.createElement('div');
+        slotDiv.className = 'drop-zone';
+        slotDiv.dataset.slotIndex = i;
+
+        const img = STATE.images[i];
+        if (img) {
+          slotDiv.innerHTML = `
+            <div><b>슬롯 ${i + 1}</b>: ${img._fileName || '이미지 로드됨'}</div>
+            <div class="drop-zone-text">${img.naturalWidth} × ${img.naturalHeight} px</div>
+            <img class="drop-zone-preview" src="${img.src}" alt="Slot preview">
+          `;
+        } else {
+          slotDiv.innerHTML = `
+            <div><b>슬롯 ${i + 1} Image</b></div>
+            <div class="drop-zone-text">클릭하여 선택 또는 드래그 & 드롭</div>
+          `;
+        }
+
+        // File Input Trigger
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'file';
+        hiddenInput.accept = 'image/*';
+        hiddenInput.style.display = 'none';
+
+        hiddenInput.addEventListener('change', (e) => {
+          if (e.target.files[0]) handleFileSelect(e.target.files[0], i);
+        });
+
+        slotDiv.addEventListener('click', () => hiddenInput.click());
+
+        // Drag & Drop
+        slotDiv.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          slotDiv.classList.add('dragover');
+        });
+        slotDiv.addEventListener('dragleave', () => slotDiv.classList.remove('dragover'));
+        slotDiv.addEventListener('drop', (e) => {
+          e.preventDefault();
+          slotDiv.classList.remove('dragover');
+          if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0], i);
+        });
+
+        DOM.imageSlotsContainer.appendChild(slotDiv);
+        DOM.imageSlotsContainer.appendChild(hiddenInput);
+      }
+    }
+
+    function renderDynamicOptions(type) {
+      DOM.dynamicOptions.innerHTML = '';
+
+      if (type === 'merge') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="form-group">
+            <label>크기 맞춤 기준</label>
+            <select id="optMergeSizeMode">
+              <option value="fit-small">작은 크기에 맞추기 (축소)</option>
+              <option value="fit-large">큰 크기에 맞추기 (확대)</option>
+              <option value="original" selected>원본 크기 유지</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>여백 (px)</label>
+              <input type="number" id="optMergeGap" value="0" min="0" max="200">
+            </div>
+            <div class="form-group">
+              <label>여백 색상</label>
+              <input type="color" id="optMergeGapColor" value="#ffffff">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label>테두리 (px)</label>
+              <input type="number" id="optMergeBorder" value="0" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label>테두리 색상</label>
+              <input type="color" id="optMergeBorderColor" value="#000000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>빈 공간 채우기 색상</label>
+            <input type="color" id="optMergeBgColor" value="#ffffff">
+          </div>
+        `;
+      } else if (type === 'flip') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="form-group">
+            <label>뒤집기 방향</label>
+            <select id="optFlipDir">
+              <option value="horizontal">좌우 뒤집기 (Horizontal)</option>
+              <option value="vertical">상하 뒤집기 (Vertical)</option>
+              <option value="both">상하 & 좌우 뒤집기</option>
+            </select>
+          </div>
+        `;
+      } else if (type === 'rotate') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="form-group">
+            <label>회전 각도 (시계 방향)</label>
+            <select id="optRotateAngle">
+              <option value="90">90° 회전</option>
+              <option value="180">180° 회전</option>
+              <option value="270">270° 회전</option>
+            </select>
+          </div>
+        `;
+      } else if (type === 'resize') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="form-group">
+            <label>조정 방식</label>
+            <select id="optResizeMode">
+              <option value="percent">비율 기준 (%)</option>
+              <option value="custom">너비/높이 직접 입력 (px)</option>
+            </select>
+          </div>
+          <div id="resizePercentGroup" class="form-group">
+            <div style="display:flex; justify-content:space-between;">
+              <label>비율</label>
+              <span id="optResizePercentVal">50%</span>
+            </div>
+            <input type="range" id="optResizeSlider" min="1" max="100" value="50">
+            <div class="btn-group" style="margin-top: 4px;">
+              <button class="btn" onclick="document.getElementById('optResizeSlider').value=25; document.getElementById('optResizeSlider').dispatchEvent(new Event('input'))">25%</button>
+              <button class="btn" onclick="document.getElementById('optResizeSlider').value=50; document.getElementById('optResizeSlider').dispatchEvent(new Event('input'))">50%</button>
+              <button class="btn" onclick="document.getElementById('optResizeSlider').value=75; document.getElementById('optResizeSlider').dispatchEvent(new Event('input'))">75%</button>
+            </div>
+          </div>
+          <div id="resizeCustomGroup" class="form-group" style="display:none;">
+            <div class="form-row">
+              <div class="form-group" style="flex:1;">
+                <label>너비 (W)</label>
+                <input type="number" id="optResizeWidth" min="1" value="800">
+              </div>
+              <div class="form-group" style="flex:1;">
+                <label>높이 (H)</label>
+                <input type="number" id="optResizeHeight" min="1" value="600">
+              </div>
+            </div>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:4px;">
+              <input type="checkbox" id="optResizeKeepAspect" checked> 비율 유지
+            </label>
+          </div>
+        `;
+
+        // Resize option events
+        setTimeout(() => {
+          const modeSel = document.getElementById('optResizeMode');
+          const pGroup = document.getElementById('resizePercentGroup');
+          const cGroup = document.getElementById('resizeCustomGroup');
+          const slider = document.getElementById('optResizeSlider');
+          const pVal = document.getElementById('optResizePercentVal');
+          const wInput = document.getElementById('optResizeWidth');
+          const hInput = document.getElementById('optResizeHeight');
+          const aspectCheck = document.getElementById('optResizeKeepAspect');
+
+          modeSel.addEventListener('change', () => {
+            const isPercent = modeSel.value === 'percent';
+            pGroup.style.display = isPercent ? 'flex' : 'none';
+            cGroup.style.display = isPercent ? 'none' : 'flex';
+            renderPreview();
+          });
+
+          slider.addEventListener('input', () => {
+            pVal.textContent = `${slider.value}%`;
+            renderPreview();
+          });
+
+          if (STATE.images[0]) {
+            wInput.value = STATE.images[0].naturalWidth;
+            hInput.value = STATE.images[0].naturalHeight;
+          }
+
+          wInput.addEventListener('input', () => {
+            if (aspectCheck.checked && STATE.images[0]) {
+              const ratio = STATE.images[0].naturalHeight / STATE.images[0].naturalWidth;
+              hInput.value = Math.round(wInput.value * ratio) || 1;
+            }
+            renderPreview();
+          });
+
+          hInput.addEventListener('input', () => {
+            if (aspectCheck.checked && STATE.images[0]) {
+              const ratio = STATE.images[0].naturalWidth / STATE.images[0].naturalHeight;
+              wInput.value = Math.round(hInput.value * ratio) || 1;
+            }
+            renderPreview();
+          });
+        }, 0);
+      } else if (type === 'crop') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="info-box">
+            우측 미리보기 화면에서 마우스 드래그로 자르기 영역을 조절하세요.
+          </div>
+          <button class="btn" id="resetCropBtn" style="width:100%;">영역 초기화</button>
+        `;
+        setTimeout(() => {
+          const resetBtn = document.getElementById('resetCropBtn');
+          if (resetBtn) resetBtn.onclick = initCropRect;
+        }, 0);
+      } else if (type === 'ico') {
+        DOM.dynamicOptions.innerHTML = `
+          <div class="info-box">
+            자동으로 16, 32, 48, 64, 128, 256px 규격의 아이콘 데이터 레이어를 생성하여 하나의 `.ico` 파비콘으로 패키징합니다.
+          </div>
+          <div id="icoWarning" class="warning-box" style="display:none;">
+            ⚠️ 원본 이미지가 256×256보다 작아 확대 시 화질 손실이 있을 수 있습니다.
+          </div>
+        `;
+      }
+
+      // Re-bind change events to trigger automatic preview updates
+      DOM.dynamicOptions.querySelectorAll('input, select').forEach(input => {
+        input.addEventListener('change', renderPreview);
+      });
+    }
+
+    /* ==========================================
+       3. FILE HANDLING & FILE READER
+       ========================================== */
+
+    function handleFileSelect(file, slotIndex) {
+      if (!file.type.startsWith('image/')) {
+        setStatus('오류: 이미지 파일만 선택할 수 있습니다.', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          img._fileName = file.name;
+          img._fileSize = file.size;
+          STATE.images[slotIndex] = img;
+
+          renderImageSlots(TAB_CONFIGS[STATE.activeTab].slotCount);
+          if (STATE.activeTab === 'crop') initCropRect();
+          renderPreview();
+          setStatus(`${file.name} 이미지 로드 완료`, 'success');
+        };
+        img.onerror = () => setStatus('오류: 이미지를 디코딩할 수 없습니다.', 'error');
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function handleGlobalPaste(e) {
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (const item of items) {
+        if (item.type.indexOf('image') !== -1) {
+          const blob = item.getAsFile();
+          // Find first empty slot or overwrite slot 0
+          let targetIndex = STATE.images.findIndex(img => !img);
+          if (targetIndex === -1) targetIndex = 0;
+          handleFileSelect(blob, targetIndex);
+          break;
+        }
+      }
+    }
+
+    /* ==========================================
+       4. IMAGE PROCESSING & CANVAS ENGINE
+       ========================================== */
+
+    function renderPreview() {
+      const config = TAB_CONFIGS[STATE.activeTab];
+      const requiredCount = config.slotCount;
+
+      // Validate inputs
+      const activeImages = STATE.images.slice(0, requiredCount);
+      const missingIndexes = [];
+      for (let i = 0; i < requiredCount; i++) {
+        if (!activeImages[i]) missingIndexes.push(i + 1);
+      }
+
+      if (missingIndexes.length > 0) {
+        clearCanvas();
+        DOM.cropOverlay.style.display = 'none';
+        setStatus(`처리할 이미지를 먼저 선택해주세요. (누락: ${missingIndexes.join(', ')}번)`, 'normal');
+        DOM.previewMeta.textContent = '0 x 0 px';
+        return;
+      }
+
+      // Process Canvas Engine
+      let outCanvas = null;
+      try {
+        switch (config.type) {
+          case 'merge':  outCanvas = processMerge(activeImages, STATE.activeTab); break;
+          case 'flip':   outCanvas = processFlip(activeImages[0]); break;
+          case 'rotate': outCanvas = processRotate(activeImages[0]); break;
+          case 'resize': outCanvas = processResize(activeImages[0]); break;
+          case 'crop':   outCanvas = processCrop(activeImages[0]); break;
+          case 'ico':    outCanvas = processIcoPreview(activeImages[0]); break;
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus(`이미지 처리 중 오류 발생: ${err.message}`, 'error');
+        return;
+      }
+
+      if (outCanvas) {
+        STATE.processedCanvas = outCanvas;
+        DOM.mainCanvas.width = outCanvas.width;
+        DOM.mainCanvas.height = outCanvas.height;
+        const ctx = DOM.mainCanvas.getContext('2d');
+        ctx.clearRect(0, 0, outCanvas.width, outCanvas.height);
+        ctx.drawImage(outCanvas, 0, 0);
+
+        DOM.previewMeta.textContent = `${outCanvas.width} × ${outCanvas.height} px`;
+        setStatus('미리보기 생성 완료', 'success');
+
+        if (config.type === 'crop') {
+          updateCropOverlayUI();
+        } else {
+          DOM.cropOverlay.style.display = 'none';
+        }
+
+        // Check ICO Warning
+        if (config.type === 'ico') {
+          const warnBox = document.getElementById('icoWarning');
+          if (warnBox) {
+            const small = activeImages[0].naturalWidth < 256 || activeImages[0].naturalHeight < 256;
+            warnBox.style.display = small ? 'block' : 'none';
+          }
+        }
+      }
+    }
+
+    function clearCanvas() {
+      DOM.mainCanvas.width = 0;
+      DOM.mainCanvas.height = 0;
+      STATE.processedCanvas = null;
+    }
+
+    /* ---- Processing Logic Sub-functions ---- */
+
+    function processMerge(images, mode) {
+      const sizeMode = document.getElementById('optMergeSizeMode')?.value || 'original';
+      const gap = parseInt(document.getElementById('optMergeGap')?.value || 0);
+      const gapColor = document.getElementById('optMergeGapColor')?.value || '#ffffff';
+      const border = parseInt(document.getElementById('optMergeBorder')?.value || 0);
+      const borderColor = document.getElementById('optMergeBorderColor')?.value || '#000000';
+      const bgColor = document.getElementById('optMergeBgColor')?.value || '#ffffff';
+
+      let cols = 1, rows = 1;
+      if (mode === 'merge-2h') { cols = 2; rows = 1; }
+      else if (mode === 'merge-2v') { cols = 1; rows = 2; }
+      else if (mode === 'merge-3h') { cols = 3; rows = 1; }
+      else if (mode === 'merge-3v') { cols = 1; rows = 3; }
+      else if (mode === 'merge-2x2') { cols = 2; rows = 2; }
+
+      // Calculate Target Dimensions
+      let refW = images[0].naturalWidth;
+      let refH = images[0].naturalHeight;
+
+      if (sizeMode === 'fit-small') {
+        refW = Math.min(...images.map(img => img.naturalWidth));
+        refH = Math.min(...images.map(img => img.naturalHeight));
+      } else if (sizeMode === 'fit-large') {
+        refW = Math.max(...images.map(img => img.naturalWidth));
+        refH = Math.max(...images.map(img => img.naturalHeight));
+      }
+
+      // Calculate scaled image sizes
+      const scaledImgs = images.map(img => {
+        if (sizeMode === 'original') return { w: img.naturalWidth, h: img.naturalHeight, img };
+        const scale = (cols > rows) ? (refH / img.naturalHeight) : (refW / img.naturalWidth);
+        return {
+          w: Math.round(img.naturalWidth * scale),
+          h: Math.round(img.naturalHeight * scale),
+          img
+        };
+      });
+
+      // Calculate grid cell bounds
+      let cellWidths = new Array(cols).fill(0);
+      let cellHeights = new Array(rows).fill(0);
+
+      scaledImgs.forEach((item, idx) => {
+        const c = idx % cols;
+        const r = Math.floor(idx / cols);
+        cellWidths[c] = Math.max(cellWidths[c], item.w);
+        cellHeights[r] = Math.max(cellHeights[r], item.h);
+      });
+
+      const totalInnerW = cellWidths.reduce((a, b) => a + b, 0) + (cols - 1) * gap;
+      const totalInnerH = cellHeights.reduce((a, b) => a + b, 0) + (rows - 1) * gap;
+
+      const finalW = totalInnerW + border * 2;
+      const finalH = totalInnerH + border * 2;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = finalW;
+      canvas.height = finalH;
+      const ctx = canvas.getContext('2d');
+
+      // Outer Border / Background
+      ctx.fillStyle = borderColor;
+      ctx.fillRect(0, 0, finalW, finalH);
+
+      ctx.fillStyle = gapColor;
+      ctx.fillRect(border, border, totalInnerW, totalInnerH);
+
+      // Render images into grid
+      scaledImgs.forEach((item, idx) => {
+        const c = idx % cols;
+        const r = Math.floor(idx / cols);
+
+        let cellX = border + cellWidths.slice(0, c).reduce((a, b) => a + b, 0) + c * gap;
+        let cellY = border + cellHeights.slice(0, r).reduce((a, b) => a + b, 0) + r * gap;
+
+        // Fill cell bg
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(cellX, cellY, cellWidths[c], cellHeights[r]);
+
+        // Center inside cell
+        let x = cellX + Math.round((cellWidths[c] - item.w) / 2);
+        let y = cellY + Math.round((cellHeights[r] - item.h) / 2);
+
+        ctx.drawImage(item.img, x, y, item.w, item.h);
+      });
+
+      return canvas;
+    }
+
+    function processFlip(img) {
+      const dir = document.getElementById('optFlipDir')?.value || 'horizontal';
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+
+      ctx.save();
+      if (dir === 'horizontal') {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      } else if (dir === 'vertical') {
+        ctx.translate(0, canvas.height);
+        ctx.scale(1, -1);
+      } else if (dir === 'both') {
+        ctx.translate(canvas.width, canvas.height);
+        ctx.scale(-1, -1);
+      }
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+      return canvas;
+    }
+
+    function processRotate(img) {
+      const angle = parseInt(document.getElementById('optRotateAngle')?.value || 90);
+      const canvas = document.createElement('canvas');
+
+      if (angle === 90 || angle === 270) {
+        canvas.width = img.naturalHeight;
+        canvas.height = img.naturalWidth;
+      } else {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+      ctx.restore();
+      return canvas;
+    }
+
+    function processResize(img) {
+      const mode = document.getElementById('optResizeMode')?.value || 'percent';
+      let targetW = img.naturalWidth;
+      let targetH = img.naturalHeight;
+
+      if (mode === 'percent') {
+        const pct = parseInt(document.getElementById('optResizeSlider')?.value || 50) / 100;
+        targetW = Math.max(1, Math.round(img.naturalWidth * pct));
+        targetH = Math.max(1, Math.round(img.naturalHeight * pct));
+      } else {
+        targetW = Math.max(1, parseInt(document.getElementById('optResizeWidth')?.value) || img.naturalWidth);
+        targetH = Math.max(1, parseInt(document.getElementById('optResizeHeight')?.value) || img.naturalHeight);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+      return canvas;
+    }
+
+    function processCrop(img) {
+      const canvas = document.createElement('canvas');
+      const w = Math.max(1, Math.round(STATE.cropRect.w));
+      const h = Math.max(1, Math.round(STATE.cropRect.h));
+      canvas.width = w;
+      canvas.height = h;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(
+        img,
+        Math.round(STATE.cropRect.x),
+        Math.round(STATE.cropRect.y),
+        w,
+        h,
+        0, 0, w, h
+      );
+      return canvas;
+    }
+
+    function processIcoPreview(img) {
+      // Create 256x256 square canvas for ICO preview
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+
+      const scale = Math.min(256 / img.naturalWidth, 256 / img.naturalHeight);
+      const w = Math.round(img.naturalWidth * scale);
+      const h = Math.round(img.naturalHeight * scale);
+      const x = Math.round((256 - w) / 2);
+      const y = Math.round((256 - h) / 2);
+
+      ctx.clearRect(0, 0, 256, 256);
+      ctx.drawImage(img, x, y, w, h);
+      return canvas;
+    }
+
+    /* ==========================================
+       5. CROP INTERACTIVE OVERLAY CONTROLLER
+       ========================================== */
+
+    function initCropRect() {
+      const img = STATE.images[0];
+      if (!img) return;
+      STATE.cropRect = {
+        x: 0,
+        y: 0,
+        w: img.naturalWidth,
+        h: img.naturalHeight
+      };
+      updateCropOverlayUI();
+      renderPreview();
+    }
+
+    function updateCropOverlayUI() {
+      const img = STATE.images[0];
+      if (!img || STATE.activeTab !== 'crop') {
+        DOM.cropOverlay.style.display = 'none';
+        return;
+      }
+
+      const canvasRect = DOM.mainCanvas.getBoundingClientRect();
+      const wrapperRect = DOM.previewWrapper.getBoundingClientRect();
+
+      const scaleX = canvasRect.width / img.naturalWidth;
+      const scaleY = canvasRect.height / img.naturalHeight;
+
+      const left = STATE.cropRect.x * scaleX;
+      const top = STATE.cropRect.y * scaleY;
+      const width = STATE.cropRect.w * scaleX;
+      const height = STATE.cropRect.h * scaleY;
+
+      DOM.cropOverlay.style.display = 'block';
+      DOM.cropOverlay.style.left = `${left}px`;
+      DOM.cropOverlay.style.top = `${top}px`;
+      DOM.cropOverlay.style.width = `${width}px`;
+      DOM.cropOverlay.style.height = `${height}px`;
+    }
+
+    // Crop Handle Dragging State & Logic
+    let isDraggingCrop = false;
+    let currentHandle = null;
+    let dragStart = { x: 0, y: 0 };
+    let initialRect = { x: 0, y: 0, w: 0, h: 0 };
+
+    DOM.cropOverlay.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      isDraggingCrop = true;
+      currentHandle = e.target.dataset.handle || 'move';
+      dragStart = { x: e.clientX, y: e.clientY };
+      initialRect = { ...STATE.cropRect };
+      DOM.cropOverlay.setPointerCapture(e.pointerId);
+    });
+
+    DOM.cropOverlay.addEventListener('pointermove', (e) => {
+      if (!isDraggingCrop) return;
+      const img = STATE.images[0];
+      if (!img) return;
+
+      const canvasRect = DOM.mainCanvas.getBoundingClientRect();
+      const scaleX = img.naturalWidth / canvasRect.width;
+      const scaleY = img.naturalHeight / canvasRect.height;
+
+      const dx = (e.clientX - dragStart.x) * scaleX;
+      const dy = (e.clientY - dragStart.y) * scaleY;
+
+      let r = { ...initialRect };
+      const minSize = 10;
+
+      if (currentHandle === 'move') {
+        r.x = Math.max(0, Math.min(img.naturalWidth - r.w, initialRect.x + dx));
+        r.y = Math.max(0, Math.min(img.naturalHeight - r.h, initialRect.y + dy));
+      } else {
+        if (currentHandle.includes('e')) r.w = Math.max(minSize, Math.min(img.naturalWidth - initialRect.x, initialRect.w + dx));
+        if (currentHandle.includes('s')) r.h = Math.max(minSize, Math.min(img.naturalHeight - initialRect.y, initialRect.h + dy));
+        if (currentHandle.includes('w')) {
+          const newW = Math.max(minSize, initialRect.w - dx);
+          r.x = initialRect.x + (initialRect.w - newW);
+          r.w = newW;
+        }
+        if (currentHandle.includes('n')) {
+          const newH = Math.max(minSize, initialRect.h - dy);
+          r.y = initialRect.y + (initialRect.h - newH);
+          r.h = newH;
+        }
+      }
+
+      // Constrain inside original dimensions
+      r.x = Math.max(0, r.x);
+      r.y = Math.max(0, r.y);
+      if (r.x + r.w > img.naturalWidth) r.w = img.naturalWidth - r.x;
+      if (r.y + r.h > img.naturalHeight) r.h = img.naturalHeight - r.y;
+
+      STATE.cropRect = r;
+      updateCropOverlayUI();
+      renderPreview();
+    });
+
+    DOM.cropOverlay.addEventListener('pointerup', (e) => {
+      isDraggingCrop = false;
+      DOM.cropOverlay.releasePointerCapture(e.pointerId);
+    });
+
+    /* ==========================================
+       6. ICO BINARY ENCODER (PURE JS)
+       ========================================== */
+
+    async function generateIcoBlob(img) {
+      const pngBuffers = [];
+
+      // 1. Render image into 6 standardized resolutions
+      for (const size of CONFIG.ICO_SIZES) {
+        const cvs = document.createElement('canvas');
+        cvs.width = size;
+        cvs.height = size;
+        const ctx = cvs.getContext('2d');
+
+        const scale = Math.min(size / img.naturalWidth, size / img.naturalHeight);
+        const w = Math.round(img.naturalWidth * scale);
+        const h = Math.round(img.naturalHeight * scale);
+        const x = Math.round((size - w) / 2);
+        const y = Math.round((size - h) / 2);
+
+        ctx.drawImage(img, x, y, w, h);
+
+        const blob = await new Promise(res => cvs.toBlob(res, 'image/png'));
+        const arrBuffer = await blob.arrayBuffer();
+        pngBuffers.push({ size, buffer: new Uint8Array(arrBuffer) });
+      }
+
+      // 2. Build ICO Binary Header & Directory
+      const count = pngBuffers.length;
+      const headerSize = 6;
+      const dirSize = 16 * count;
+      let dataOffset = headerSize + dirSize;
+
+      let totalSize = dataOffset;
+      pngBuffers.forEach(item => totalSize += item.buffer.byteLength);
+
+      const icoArray = new Uint8Array(totalSize);
+      const view = new DataView(icoArray.buffer);
+
+      // ICONDIR Header
+      view.setUint16(0, 0, true); // Reserved
+      view.setUint16(2, 1, true); // Type: 1 = ICO
+      view.setUint16(4, count, true); // Number of images
+
+      // ICONDIRENTRY Records
+      pngBuffers.forEach((item, i) => {
+        const dirOffset = headerSize + i * 16;
+        const bLen = item.buffer.byteLength;
+
+        view.setUint8(dirOffset + 0, item.size === 256 ? 0 : item.size); // Width
+        view.setUint8(dirOffset + 1, item.size === 256 ? 0 : item.size); // Height
+        view.setUint8(dirOffset + 2, 0); // Palette count
+        view.setUint8(dirOffset + 3, 0); // Reserved
+        view.setUint16(dirOffset + 4, 1, true); // Color planes
+        view.setUint16(dirOffset + 6, 32, true); // Bits per pixel
+        view.setUint32(dirOffset + 8, bLen, true); // Image byte size
+        view.setUint32(dirOffset + 12, dataOffset, true); // Offset of PNG data
+
+        // Copy PNG Binary Data
+        icoArray.set(item.buffer, dataOffset);
+        dataOffset += bLen;
+      });
+
+      return new Blob([icoArray], { type: 'image/x-icon' });
+    }
+
+    /* ==========================================
+       7. DOWNLOAD & EXPORT CONTROLLER
+       ========================================== */
+
+    async function downloadResult() {
+      if (!STATE.processedCanvas) {
+        setStatus('다운로드할 이미지 결과물이 없습니다.', 'error');
+        return;
+      }
+
+      const format = STATE.exportFormat;
+      let filename = `image_${STATE.activeTab.replace('-', '_')}`;
+
+      setStatus('파일 생성 중...', 'normal');
+
+      if (format === 'image/x-icon') {
+        filename = 'favicon.ico';
+        try {
+          const icoBlob = await generateIcoBlob(STATE.images[0]);
+          triggerDownload(icoBlob, filename);
+          setStatus('ICO 파일 다운로드 시작 완료', 'success');
+        } catch (err) {
+          setStatus(`ICO 생성 오류: ${err.message}`, 'error');
+        }
+      } else {
+        const ext = format.split('/')[1].replace('jpeg', 'jpg');
+        filename += `.${ext}`;
+
+        STATE.processedCanvas.toBlob((blob) => {
+          if (!blob) {
+            setStatus('이미지 변환에 실패하였습니다.', 'error');
+            return;
+          }
+          triggerDownload(blob, filename);
+          setStatus(`${filename} 다운로드 완료!`, 'success');
+        }, format, STATE.quality);
+      }
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /* ==========================================
+       8. UTILITIES & LOCAL STORAGE
+       ========================================== */
+
+    function setStatus(msg, type = 'normal') {
+      DOM.statusText.textContent = msg;
+      DOM.statusInfoBox.textContent = msg;
+
+      if (type === 'error') {
+        DOM.statusInfoBox.className = 'warning-box';
+      } else {
+        DOM.statusInfoBox.className = 'info-box';
+      }
+    }
+
+    function toggleTheme() {
+      const current = document.body.getAttribute('data-theme') || 'light';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', next);
+      localStorage.setItem('alpaca_theme', next);
+    }
+
+    function saveSettings() {
+      const prefs = {
+        format: STATE.exportFormat,
+        quality: STATE.quality
+      };
+      localStorage.setItem('alpaca_prefs', JSON.stringify(prefs));
+    }
+
+    function loadSettings() {
+      const savedTheme = localStorage.getItem('alpaca_theme');
+      if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+
+      try {
+        const prefs = JSON.parse(localStorage.getItem('alpaca_prefs'));
+        if (prefs) {
+          if (prefs.format) DOM.exportFormat.value = prefs.format;
+          if (prefs.quality) {
+            DOM.exportQuality.value = Math.round(prefs.quality * 100);
+            DOM.qualityVal.textContent = `${DOM.exportQuality.value}%`;
+            STATE.quality = prefs.quality;
+          }
+        }
+      } catch(e) {}
+    }
+
+    // App Startup
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
