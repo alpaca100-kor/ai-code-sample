@@ -1,0 +1,1902 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>마크다운 에디터</title>
+<meta name="description" content="설치나 인터넷 연결 없이 브라우저에서 바로 실행되는 오프라인 Markdown 뷰어 겸 에디터입니다.">
+<style>
+/* ==========================================================================
+   마크다운 에디터 - 스타일시트
+   구성 순서: 1.디자인 토큰 2.리셋 3.레이아웃 4.툴바 5.분할영역/디바이더
+             6.Viewer 타이포그래피 7.Editor 8.상태바 9.모달/토스트
+             10.접근성 11.반응형(모바일)
+   ========================================================================== */
+
+/* -----------------------------------------------------------------------
+   1. 디자인 토큰 (라이트 모드 기본값 + 다크 모드 오버라이드)
+   ----------------------------------------------------------------------- */
+:root {
+  --bg-app: #F5F5F7;
+  --bg-surface: #FFFFFF;
+  --bg-editor: #FBFBFA;
+  --bg-hover: #F0F0F3;
+  --bg-active: #E8E8ED;
+
+  --border: #E3E3E8;
+  --border-strong: #D2D2D9;
+
+  --text-primary: #1C1C1F;
+  --text-secondary: #6B6B74;
+  --text-tertiary: #9C9CA4;
+  --text-on-accent: #FFFFFF;
+
+  --accent: #5B5FD6;
+  --accent-hover: #4A4EC2;
+  --accent-soft: #EDEDFB;
+
+  --success: #2E8B57;
+  --success-soft: #E7F5EE;
+  --warn: #B4791F;
+  --warn-soft: #FBF1E1;
+  --danger: #C0392B;
+  --danger-soft: #FBEAE8;
+
+  --code-bg: #F0F0F4;
+  --code-text: #B23A72;
+  --quote-bar: #D6D6E0;
+  --link: #4548B8;
+
+  --shadow-sm: 0 1px 2px rgba(24, 24, 34, 0.06);
+  --shadow-md: 0 4px 16px rgba(24, 24, 34, 0.10);
+  --shadow-modal: 0 16px 48px rgba(20, 20, 30, 0.20), 0 4px 12px rgba(20, 20, 30, 0.10);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+             "Malgun Gothic", "맑은 고딕", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "D2Coding", "Cascadia Code", "Consolas",
+               "Menlo", "Liberation Mono", monospace;
+
+  --radius-sm: 5px;
+  --radius-md: 9px;
+  --radius-lg: 14px;
+
+  --toolbar-h: 54px;
+  --statusbar-h: 32px;
+  --divider-size: 9px;
+
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 110ms var(--ease);
+  --t-base: 180ms var(--ease);
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg-app: #1B1C1F;
+  --bg-surface: #222327;
+  --bg-editor: #1E1F22;
+  --bg-hover: #2B2C31;
+  --bg-active: #333439;
+
+  --border: #35363C;
+  --border-strong: #45464D;
+
+  --text-primary: #EDEDEF;
+  --text-secondary: #A3A3AC;
+  --text-tertiary: #77777F;
+  --text-on-accent: #FFFFFF;
+
+  --accent: #9294EE;
+  --accent-hover: #A5A7F2;
+  --accent-soft: #2A2B4A;
+
+  --success: #74C69D;
+  --success-soft: #1D3327;
+  --warn: #E5AC6A;
+  --warn-soft: #3B2D18;
+  --danger: #E5766B;
+  --danger-soft: #3B2320;
+
+  --code-bg: #292A2F;
+  --code-text: #E191B5;
+  --quote-bar: #45464D;
+  --link: #A9ABF5;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+}
+
+/* -----------------------------------------------------------------------
+   2. 리셋 / 베이스
+   ----------------------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+h1, h2, h3, p { margin: 0; }
+
+svg { display: block; }
+
+/* 스크롤바 (웹킷 계열, 미니멀 톤) */
+.scroll-area::-webkit-scrollbar { width: 11px; height: 11px; }
+.scroll-area::-webkit-scrollbar-track { background: transparent; }
+.scroll-area::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+  border: 3px solid var(--bg-surface);
+}
+.scroll-area::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 공통 포커스 스타일 (키보드 접근성) */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* -----------------------------------------------------------------------
+   3. 앱 레이아웃 (전체 골격)
+   ----------------------------------------------------------------------- */
+#app {
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+}
+
+/* -----------------------------------------------------------------------
+   4. 툴바
+   ----------------------------------------------------------------------- */
+.toolbar {
+  flex: 0 0 var(--toolbar-h);
+  height: var(--toolbar-h);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.toolbar::-webkit-scrollbar { display: none; }
+
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  margin-right: 6px;
+  border-right: 1px solid var(--border);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.toolbar-brand-mark {
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(155deg, var(--accent), var(--link));
+  flex: 0 0 auto;
+}
+.toolbar-brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.btn:hover { background: var(--bg-hover); }
+.btn:active { background: var(--bg-active); }
+.btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.btn-label { line-height: 1; }
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { background: var(--accent-hover); filter: brightness(0.94); }
+
+.btn-ghost-icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+.btn-ghost-icon:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+.toolbar-spacer { flex: 1 1 auto; min-width: 8px; }
+
+.toolbar-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.filename-display {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.filename-text {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+
+.save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.save-status-dot {
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--text-tertiary);
+  transition: background var(--t-base);
+}
+.save-status[data-state="saved"] { color: var(--success); }
+.save-status[data-state="saved"] .save-status-dot { background: var(--success); }
+.save-status[data-state="dirty"] { color: var(--warn); }
+.save-status[data-state="dirty"] .save-status-dot { background: var(--warn); }
+
+/* -----------------------------------------------------------------------
+   5. 분할 영역 / 디바이더
+   ----------------------------------------------------------------------- */
+.split-container {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.viewer-pane {
+  background: var(--bg-surface);
+}
+
+.editor-pane {
+  background: var(--bg-editor);
+}
+
+.pane-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.divider {
+  flex: 0 0 var(--divider-size);
+  width: var(--divider-size);
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+.divider::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border);
+  transition: background var(--t-fast), width var(--t-fast);
+}
+.divider:hover::before,
+.divider:focus-visible::before,
+.divider.is-dragging::before {
+  width: 3px;
+  background: var(--accent);
+}
+.divider:focus-visible {
+  outline: none;
+}
+.divider:focus-visible::before {
+  width: 3px;
+}
+
+/* -----------------------------------------------------------------------
+   6. Viewer 타이포그래피
+   ----------------------------------------------------------------------- */
+.viewer-content {
+  padding: 40px clamp(20px, 6%, 64px);
+  max-width: 800px;
+  margin: 0 auto;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+
+.viewer-content h1, .viewer-content h2, .viewer-content h3,
+.viewer-content h4, .viewer-content h5, .viewer-content h6 {
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  margin: 1.6em 0 0.6em;
+}
+.viewer-content h1:first-child, .viewer-content h2:first-child { margin-top: 0; }
+.viewer-content h1 { font-size: 1.9em; padding-bottom: 0.35em; border-bottom: 1px solid var(--border); }
+.viewer-content h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border); }
+.viewer-content h3 { font-size: 1.25em; }
+.viewer-content h4 { font-size: 1.08em; }
+.viewer-content h5, .viewer-content h6 { font-size: 1em; color: var(--text-secondary); }
+
+.viewer-content p { margin: 0.9em 0; }
+
+.viewer-content strong { font-weight: 700; }
+.viewer-content em { font-style: italic; }
+.viewer-content del { color: var(--text-secondary); }
+
+.viewer-content a {
+  color: var(--link);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--link) 40%, transparent);
+  text-underline-offset: 2px;
+}
+.viewer-content a:hover { text-decoration-color: var(--link); }
+
+.viewer-content ul, .viewer-content ol {
+  margin: 0.9em 0;
+  padding-left: 1.5em;
+}
+.viewer-content li { margin: 0.3em 0; }
+.viewer-content li > ul, .viewer-content li > ol { margin: 0.3em 0; }
+.viewer-content li input[type="checkbox"] {
+  margin-right: 0.5em;
+}
+
+.viewer-content blockquote {
+  margin: 1em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--text-secondary);
+}
+.viewer-content blockquote p { margin: 0.6em 0; }
+
+.viewer-content code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--code-bg);
+  color: var(--code-text);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+.viewer-content pre {
+  margin: 1.1em 0;
+  padding: 14px 16px;
+  background: var(--code-bg);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+.viewer-content pre code {
+  background: none;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+.viewer-content hr {
+  margin: 2em 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.viewer-content table {
+  border-collapse: collapse;
+  margin: 1.1em 0;
+  width: 100%;
+  font-size: 0.92em;
+}
+.viewer-content th, .viewer-content td {
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  text-align: left;
+}
+.viewer-content th {
+  background: var(--bg-hover);
+  font-weight: 600;
+}
+.viewer-content img { max-width: 100%; border-radius: var(--radius-sm); }
+
+/* Viewer 빈 상태 (안내 화면) */
+.viewer-empty-guide {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.viewer-empty-guide-inner {
+  max-width: 380px;
+  text-align: center;
+}
+.viewer-empty-guide-icon {
+  width: 52px; height: 52px;
+  margin: 0 auto 18px;
+  color: var(--text-tertiary);
+}
+.viewer-empty-guide h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+.viewer-empty-guide p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+.viewer-empty-guide-shortcuts {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.viewer-empty-guide-shortcuts div { display: flex; align-items: center; gap: 8px; }
+kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 var(--border-strong);
+  color: var(--text-primary);
+}
+
+/* -----------------------------------------------------------------------
+   7. Editor
+   ----------------------------------------------------------------------- */
+.editor-textarea {
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  padding: 24px 26px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.7;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  overflow-y: auto;
+}
+.editor-textarea::placeholder { color: var(--text-tertiary); }
+.editor-textarea:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent-soft);
+}
+
+.pane-header {
+  flex: 0 0 auto;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+
+/* -----------------------------------------------------------------------
+   8. 상태바
+   ----------------------------------------------------------------------- */
+.statusbar {
+  flex: 0 0 var(--statusbar-h);
+  height: var(--statusbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.status-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--t-base);
+}
+.status-message[data-type="success"] { color: var(--success); }
+.status-message[data-type="error"] { color: var(--danger); }
+.status-message[data-type="info"] { color: var(--text-secondary); }
+.doc-info {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -----------------------------------------------------------------------
+   9. 모달 / 토스트
+   ----------------------------------------------------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 15, 20, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--t-base);
+}
+.modal-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+[data-theme="dark"] .modal-overlay { background: rgba(0, 0, 0, 0.6); }
+
+.modal {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  padding: 22px 22px 18px;
+  transform: translateY(6px) scale(0.98);
+  transition: transform var(--t-base);
+}
+.modal-overlay.is-open .modal { transform: translateY(0) scale(1); }
+
+.modal h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.modal p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.modal-input-wrap { margin-top: 14px; }
+.modal-input-wrap label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.modal-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.modal-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+.modal-actions .btn { height: 36px; }
+
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--statusbar-h) + 16px);
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 200;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--text-primary);
+  color: var(--bg-surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity var(--t-base), transform var(--t-base);
+}
+.toast.is-visible { opacity: 1; transform: translateY(0); }
+.toast[data-type="error"] { background: var(--danger); color: #fff; }
+.toast[data-type="success"] { background: var(--success); color: #fff; }
+
+/* -----------------------------------------------------------------------
+   10. 접근성 보조
+   ----------------------------------------------------------------------- */
+.hidden { display: none !important; }
+
+/* -----------------------------------------------------------------------
+   11. 반응형 (태블릿 / 모바일)
+   ----------------------------------------------------------------------- */
+@media (max-width: 860px) {
+  .filename-text { max-width: 140px; }
+  .toolbar-brand-name { display: none; }
+}
+
+@media (max-width: 768px) {
+  body { font-size: 13.5px; }
+
+  .split-container.is-stacked {
+    flex-direction: column;
+  }
+  .split-container.is-stacked .divider {
+    width: 100%;
+    height: var(--divider-size);
+    flex: 0 0 var(--divider-size);
+    cursor: row-resize;
+  }
+  .split-container.is-stacked .divider::before {
+    top: 50%; left: 0; right: 0; bottom: auto;
+    width: auto; height: 1px;
+    transform: translateY(-50%);
+  }
+  .split-container.is-stacked .divider:hover::before,
+  .split-container.is-stacked .divider:focus-visible::before,
+  .split-container.is-stacked .divider.is-dragging::before {
+    height: 3px;
+    width: auto;
+  }
+
+  .btn-label { display: none; }
+  .btn { padding: 0 9px; }
+  .btn svg { width: 18px; height: 18px; }
+
+  .viewer-content { padding: 26px 18px; font-size: 15px; }
+  .editor-textarea { padding: 16px 18px; }
+}
+
+@media (max-width: 480px) {
+  .toolbar { gap: 2px; padding: 0 8px; }
+  .toolbar-brand { padding-right: 6px; margin-right: 4px; }
+  .filename-text { max-width: 84px; }
+  .save-status span.save-status-label { display: none; }
+}
+
+</style>
+</head>
+<body>
+  <div id="app">
+    <!-- ============================= 상단 툴바 ============================= -->
+    <header class="toolbar">
+      <div class="toolbar-brand">
+        <span class="toolbar-brand-mark" aria-hidden="true"></span>
+        <span class="toolbar-brand-name">마크다운 에디터</span>
+      </div>
+
+      <div class="toolbar-actions">
+        <button type="button" id="btn-new" class="btn" aria-label="새 문서 (Ctrl+N)" title="새 문서 (Ctrl+N)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M14 3.5V8h4"/><path d="M12 12.3v5M9.5 14.8h5"/></svg>
+          <span class="btn-label">새 문서</span>
+        </button>
+        <button type="button" id="btn-open" class="btn" aria-label="파일 열기 (Ctrl+O)" title="파일 열기 (Ctrl+O)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-.66.54-1.2 1.2-1.2h4.3l1.6 2h8.7c.66 0 1.2.54 1.2 1.2v9.6c0 .66-.54 1.2-1.2 1.2H4.7c-.66 0-1.2-.54-1.2-1.2Z"/></svg>
+          <span class="btn-label">열기</span>
+        </button>
+        <button type="button" id="btn-save" class="btn" aria-label="저장 (Ctrl+S)" title="저장 (Ctrl+S)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5h11.5L19.5 6.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z"/><path d="M8 3.5V9h7V3.5"/><path d="M7.5 14h9v6h-9z"/></svg>
+          <span class="btn-label">저장</span>
+        </button>
+        <button type="button" id="btn-save-as" class="btn" aria-label="다른 이름으로 저장" title="다른 이름으로 저장">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3.5h8.5L16 6v3.8"/><path d="M5 3.5a1 1 0 0 0-1 1V19a1 1 0 0 0 1 1h6.3"/><path d="M8 3.5V8h5.5"/><circle cx="17.3" cy="16.3" r="3.6"/><path d="M17.3 14.8v3M15.8 16.3h3"/></svg>
+          <span class="btn-label">다른 이름으로 저장</span>
+        </button>
+      </div>
+
+      <div class="toolbar-spacer"></div>
+
+      <div class="toolbar-meta">
+        <div class="filename-display">
+          <span class="filename-text" id="filename-text">제목 없음.md</span>
+        </div>
+        <span class="save-status" id="save-status" data-state="saved">
+          <span class="save-status-dot" aria-hidden="true"></span>
+          <span class="save-status-label" id="save-status-label">저장됨</span>
+        </span>
+      </div>
+
+      <button type="button" id="btn-theme-toggle" class="btn btn-ghost-icon" aria-label="다크 모드로 전환">
+        <svg id="icon-theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.3 4.3l1.6 1.6M18.1 18.1l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.3 19.7l1.6-1.6M18.1 5.9l1.6-1.6"/></svg>
+        <svg id="icon-theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="hidden"><path d="M20 14.2A8.2 8.2 0 1 1 9.8 4a6.4 6.4 0 0 0 10.2 10.2Z"/></svg>
+      </button>
+    </header>
+
+    <!-- ============================= 본문: Viewer / Editor 분할 ============================= -->
+    <main class="split-container" id="split-container">
+      <section class="pane viewer-pane" id="viewer-pane" aria-label="Markdown 미리보기">
+        <div class="pane-header">미리보기</div>
+        <div class="pane-scroll scroll-area" id="viewer-scroll" tabindex="0">
+          <div class="viewer-content" id="viewer-content"></div>
+        </div>
+      </section>
+
+      <div class="divider"
+           id="divider"
+           role="separator"
+           aria-orientation="vertical"
+           aria-label="미리보기와 편집기 크기 조절 (방향키로 조절)"
+           aria-valuemin="15"
+           aria-valuemax="85"
+           aria-valuenow="50"
+           tabindex="0"></div>
+
+      <section class="pane editor-pane" id="editor-pane" aria-label="Markdown 편집기">
+        <div class="pane-header">편집기</div>
+        <textarea
+          class="editor-textarea scroll-area"
+          id="editor"
+          spellcheck="false"
+          autocapitalize="off"
+          autocorrect="off"
+          aria-label="Markdown 원문 편집기"
+          placeholder="여기에 Markdown 문서를 입력하세요…"></textarea>
+      </section>
+    </main>
+
+    <!-- ============================= 하단 상태바 ============================= -->
+    <footer class="statusbar">
+      <span class="status-message" id="status-message" data-type="info" role="status" aria-live="polite"></span>
+      <span class="doc-info" id="doc-info">0자 · 0 Bytes</span>
+    </footer>
+  </div>
+
+  <!-- ============================= 모달 (확인창 / 입력창 공용) ============================= -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc" id="modal">
+      <h2 id="modal-title">제목</h2>
+      <p id="modal-desc">설명 텍스트</p>
+      <div class="modal-input-wrap hidden" id="modal-input-wrap">
+        <label for="modal-input" id="modal-input-label">파일명</label>
+        <input type="text" class="modal-input" id="modal-input" autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="modal-cancel">취소</button>
+        <button type="button" class="btn btn-primary" id="modal-confirm">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================= 토스트(간단 알림) ============================= -->
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+
+  <!-- 숨김 파일 입력 (File System Access API 미지원 브라우저용 폴백) -->
+  <input type="file" id="file-input" class="sr-only" accept=".md,.markdown,.txt,text/markdown,text/plain" aria-hidden="true" tabindex="-1">
+
+
+<!-- ============================================================
+     외부 라이브러리 (오프라인 사용을 위해 파일 내부에 직접 포함)
+     - marked.js  : Markdown → HTML 변환
+     - DOMPurify  : 변환된 HTML 살균 처리 (XSS 방지)
+     CDN을 사용하지 않으므로 인터넷 연결 없이도 항상 동일하게 동작합니다.
+     ============================================================ -->
+<script>
+/* marked.js (MIT License, https://github.com/markedjs/marked) */
+/**
+ * marked v18.0.10 - a markdown parser
+ * Copyright (c) 2018-2026, MarkedJS. (MIT License)
+ * Copyright (c) 2011-2018, Christopher Jeffrey. (MIT License)
+ * https://github.com/markedjs/marked
+ */
+
+/**
+ * DO NOT EDIT THIS FILE
+ * The code in this file is generated from files in ./src/
+ */
+(function(g,f){if(typeof exports=="object"&&typeof module<"u"){module.exports=f()}else if("function"==typeof define && define.amd){define("marked",f)}else {g["marked"]=f()}}(typeof globalThis < "u" ? globalThis : typeof self < "u" ? self : this,function(){var exports={};var __exports=exports;var module={exports};
+"use strict";var j=Object.defineProperty;var we=Object.getOwnPropertyDescriptor;var ye=Object.getOwnPropertyNames;var Pe=Object.prototype.hasOwnProperty;var Se=(l,e)=>{for(var t in e)j(l,t,{get:e[t],enumerable:!0})},_e=(l,e,t,n)=>{if(e&&typeof e=="object"||typeof e=="function")for(let s of ye(e))!Pe.call(l,s)&&s!==t&&j(l,s,{get:()=>e[s],enumerable:!(n=we(e,s))||n.enumerable});return l};var $e=l=>_e(j({},"__esModule",{value:!0}),l);var Lt={};Se(Lt,{Hooks:()=>P,Lexer:()=>x,Marked:()=>D,Parser:()=>b,Renderer:()=>y,TextRenderer:()=>_,Tokenizer:()=>w,defaults:()=>R,getDefaults:()=>z,lexer:()=>$t,marked:()=>g,options:()=>Ot,parse:()=>St,parseInline:()=>Pt,parser:()=>_t,setOptions:()=>wt,use:()=>Re,walkTokens:()=>yt});module.exports=$e(Lt);function z(){return{async:!1,breaks:!1,extensions:null,gfm:!0,hooks:null,pedantic:!1,renderer:null,silent:!1,tokenizer:null,walkTokens:null}}var R=z();function F(l){R=l}var E={exec:()=>null};function A(l){let e=[];return t=>{let n=Math.max(0,Math.min(3,t-1)),s=e[n];return s||(s=l(n),e[n]=s),s}}function d(l,e=""){let t=typeof l=="string"?l:l.source,n={replace:(s,r)=>{let i=typeof r=="string"?r:r.source;return i=i.replace(m.caret,"$1"),t=t.replace(s,i),n},getRegex:()=>new RegExp(t,e)};return n}var Le=((l="")=>{try{return!!new RegExp("(?<=1)(?<!1)"+l)}catch{return!1}})(),m={codeRemoveIndent:/^(?: {1,4}| {0,3}\t)/gm,outputLinkReplace:/\\([\[\]])/g,indentCodeCompensation:/^(\s+)(?:```)/,beginningSpace:/^\s+/,endingHash:/#$/,startingSpaceChar:/^ /,endingSpaceChar:/ $/,nonSpaceChar:/[^ ]/,newLineCharGlobal:/\n/g,tabCharGlobal:/\t/g,multipleSpaceGlobal:/\s+/g,blankLine:/^[ \t]*$/,doubleBlankLine:/\n[ \t]*\n[ \t]*$/,blockquoteStart:/^ {0,3}>/,blockquoteSetextReplace:/\n {0,3}((?:=+|-+) *)(?=\n|$)/g,blockquoteSetextReplace2:/^ {0,3}>[ \t]?/gm,listReplaceNesting:/^ {1,4}(?=( {4})*[^ ])/g,listIsTask:/^\[[ xX]\] +\S/,listReplaceTask:/^\[[ xX]\] +/,listTaskCheckbox:/\[[ xX]\]/,anyLine:/\n.*\n/,hrefBrackets:/^<(.*)>$/,tableDelimiter:/[:|]/,tableAlignChars:/^\||\| *$/g,tableRowBlankLine:/\n[ \t]*$/,tableAlignRight:/^ *-+: *$/,tableAlignCenter:/^ *:-+: *$/,tableAlignLeft:/^ *:-+ *$/,startATag:/^<a /i,endATag:/^<\/a>/i,startPreScriptTag:/^<(pre|code|kbd|script)(\s|>)/i,endPreScriptTag:/^<\/(pre|code|kbd|script)(\s|>)/i,startAngleBracket:/^</,endAngleBracket:/>$/,pedanticHrefTitle:/^([^'"]*[^\s])\s+(['"])(.*)\2/,unicodeAlphaNumeric:/[\p{L}\p{N}]/u,escapeTest:/[&<>"']/,escapeReplace:/[&<>"']/g,escapeTestNoEncode:/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/,escapeReplaceNoEncode:/[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g,caret:/(^|[^\[])\^/g,percentDecode:/%25/g,findPipe:/\|/g,splitPipe:/ \|/,slashPipe:/\\\|/g,carriageReturn:/\r\n|\r/g,spaceLine:/^ +$/gm,notSpaceStart:/^\S*/,endingNewline:/\n$/,listItemRegex:l=>new RegExp(`^( {0,3}${l})((?:[	 ][^\\n]*)?(?:\\n|$))`),nextBulletRegex:A(l=>new RegExp(`^ {0,${l}}(?:[*+-]|\\d{1,9}[.)])((?:[ 	][^\\n]*)?(?:\\n|$))`)),hrRegex:A(l=>new RegExp(`^ {0,${l}}((?:- *){3,}|(?:_ *){3,}|(?:\\* *){3,})(?:\\n+|$)`)),fencesBeginRegex:A(l=>new RegExp(`^ {0,${l}}(?:\`\`\`|~~~)`)),headingBeginRegex:A(l=>new RegExp(`^ {0,${l}}#`)),htmlBeginRegex:A(l=>new RegExp(`^ {0,${l}}<(?:[a-z].*>|!--)`,"i")),blockquoteBeginRegex:A(l=>new RegExp(`^ {0,${l}}>`))},Me=/^(?:[ \t]*(?:\n|$))+/,ze=/^((?: {4}| {0,3}\t)[^\n]+(?:\n(?:[ \t]*(?:\n|$))*)?)+/,Ee=/^ {0,3}(`{3,}(?=[^`\n]*(?:\n|$))|~{3,})([^\n]*)(?:\n|$)(?:|([\s\S]*?)(?:\n|$))(?: {0,3}\1[~`]* *(?=\n|$)|$)/,v=/^ {0,3}((?:-[\t ]*){3,}|(?:_[ \t]*){3,}|(?:\*[ \t]*){3,})(?:\n+|$)/,Ce=/^ {0,3}(#{1,6})(?=\s|$)(.*)(?:\n+|$)/,K=/ {0,3}(?:[*+-]|\d{1,9}[.)])/,ae=/^(?!bull |blockCode|fences|blockquote|heading|html|table)((?:.|\n(?!\s*?\n|bull |blockCode|fences|blockquote|heading|html|table))+?)\n {0,3}(=+|-+) *(?:\n+|$)/,le=d(ae).replace(/bull/g,K).replace(/blockCode/g,/(?: {4}| {0,3}\t)/).replace(/fences/g,/ {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g,/ {0,3}>/).replace(/heading/g,/ {0,3}#{1,6}(?:\s|$)/).replace(/html/g,/ {0,3}<[^\n>]+>\n/).replace(/\|table/g,"").getRegex(),Ae=d(ae).replace(/bull/g,K).replace(/blockCode/g,/(?: {4}| {0,3}\t)/).replace(/fences/g,/ {0,3}(?:`{3,}|~{3,})/).replace(/blockquote/g,/ {0,3}>/).replace(/heading/g,/ {0,3}#{1,6}(?:\s|$)/).replace(/html/g,/ {0,3}<[^\n>]+>\n/).replace(/table/g,/ {0,3}\|?(?:[:\- ]*\|)+[\:\- ]*\n/).getRegex(),W=/^([^\n]+(?:\n(?!hr|heading|lheading|blockquote|fences|list|html|table|[ \t]+\n)[^\n]+)*)/,Ie=/^[^\n]+/,X=/(?!\s*\])(?:\\[\s\S]|[^\[\]\\])+/,Be=d(/^ {0,3}\[(label)\]: *(?:\n[ \t]*)?([^<\s][^\s]*|<.*?>)(?:(?: +(?:\n[ \t]*)?| *\n[ \t]*)(title))? *(?:\n+|$)/).replace("label",X).replace("title",/(?:"(?:\\"?|[^"\\])*"|'[^'\n]*(?:\n[^'\n]+)*\n?'|\([^()]*\))/).getRegex(),De=d(/^(bull)([ \t][^\n]*?)?(?:\n|$)/).replace(/bull/g,K).getRegex(),Q="address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|meta|nav|noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul",J=/<!--(?:-?>|[\s\S]*?(?:-->|$))/,qe=d("^ {0,3}(?:<(script|pre|style|textarea)[\\s>][\\s\\S]*?(?:</\\1>[^\\n]*\\n*|$)|comment[^\\n]*(\\n+|$)|<\\?[\\s\\S]*?(?:\\?>[^\\n]*\\n*|$)|<![A-Z][\\s\\S]*?(?:>[^\\n]*\\n*|$)|<!\\[CDATA\\[[\\s\\S]*?(?:\\]\\]>[^\\n]*\\n*|$)|</?(tag)(?: +|\\n|/?>)[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|<(?!script|pre|style|textarea)([a-z][\\w-]*)(?:attribute)*? */?>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$)|</(?!script|pre|style|textarea)[a-z][\\w-]*\\s*>(?=[ \\t]*(?:\\n|$))[\\s\\S]*?(?:(?:\\n[ 	]*)+\\n|$))","i").replace("comment",J).replace("tag",Q).replace("attribute",/ +[a-zA-Z:_][\w.:-]*(?: *= *"[^"\n]*"| *= *'[^'\n]*'| *= *[^\s"'=<>`]+)?/).getRegex(),pe=l=>d(W).replace("hr",v).replace("heading"," {0,3}#{1,6}(?:\\s|$)").replace("|lheading","").replace("|table","").replace("blockquote"," {0,3}>").replace("fences"," {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list",l).replace("html","</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag",Q).getRegex(),ve=pe(/ {0,3}(?:[*+-]|1[.)])[ \t]+[^ \t\n]/),He=pe(/ {0,3}(?:[*+-]|\d{1,9}[.)])(?:[ \t]|\n|$)/),Ze=d(/^( {0,3}> ?(paragraph|[^\n]*)(?:\n|$))+/).replace("paragraph",He).getRegex(),V={blockquote:Ze,code:ze,def:Be,fences:Ee,heading:Ce,hr:v,html:qe,lheading:le,list:De,newline:Me,paragraph:ve,table:E,text:Ie},ie=d("^ *([^\\n ].*)\\n {0,3}((?:\\| *)?:?-+:? *(?:\\| *:?-+:? *)*(?:\\| *)?)(?:\\n((?:(?! *\\n|hr|heading|blockquote|code|fences|list|html).*(?:\\n|$))*)\\n*|$)").replace("hr",v).replace("heading"," {0,3}#{1,6}(?:\\s|$)").replace("blockquote"," {0,3}>").replace("code","(?: {4}| {0,3}	)[^\\n]").replace("fences"," {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list"," {0,3}(?:[*+-]|1[.)])[ \\t]").replace("html","</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag",Q).getRegex(),Ge={...V,lheading:Ae,table:ie,paragraph:d(W).replace("hr",v).replace("heading"," {0,3}#{1,6}(?:\\s|$)").replace("|lheading","").replace("table",ie).replace("blockquote"," {0,3}>").replace("fences"," {0,3}(?:`{3,}(?=[^`\\n]*(?:\\n|$))|~~~)[^\\n]*(?:\\n|$)").replace("list"," {0,3}(?:[*+-]|1[.)])[ \\t]+[^ \\t\\n]").replace("html","</?(?:tag)(?: +|\\n|/?>)|<(?:script|pre|style|textarea|!--)").replace("tag",Q).getRegex()},Qe={...V,html:d(`^ *(?:comment *(?:\\n|\\s*$)|<(tag)[\\s\\S]+?</\\1> *(?:\\n{2,}|\\s*$)|<tag(?:"[^"]*"|'[^']*'|\\s[^'"/>\\s]*)*?/?> *(?:\\n{2,}|\\s*$))`).replace("comment",J).replace(/tag/g,"(?!(?:a|em|strong|small|s|cite|q|dfn|abbr|data|time|code|var|samp|kbd|sub|sup|i|b|u|mark|ruby|rt|rp|bdi|bdo|span|br|wbr|ins|del|img)\\b)\\w+(?!:|[^\\w\\s@]*@)\\b").getRegex(),def:/^ *\[([^\]]+)\]: *<?([^\s>]+)>?(?: +(["(][^\n]+[")]))? *(?:\n+|$)/,heading:/^(#{1,6})(.*)(?:\n+|$)/,fences:E,lheading:/^(.+?)\n {0,3}(=+|-+) *(?:\n+|$)/,paragraph:d(W).replace("hr",v).replace("heading",` *#{1,6} *[^
+]`).replace("lheading",le).replace("|table","").replace("blockquote"," {0,3}>").replace("|fences","").replace("|list","").replace("|html","").replace("|tag","").getRegex()},Ne=/^\\([!"#$%&'()*+,\-./:;<=>?@\[\]\\^_`{|}~])/,je=/^(`+)([^`]|[^`][\s\S]*?[^`])\1(?!`)/,ue=/^( {2,}|\\)\n(?!\s*$)/,Fe=/^(`+|[^`])(?:(?= {2,}\n)|[\s\S]*?(?:(?=[\\<!\[`*_]|\b_|$)|[^ ](?= {2,}\n)))/,$=/[\p{P}\p{S}]/u,I=/[\s\p{P}\p{S}]/u,H=/[^\s\p{P}\p{S}]/u,Ue=d(/^((?![*_])punctSpace)/,"u").replace(/punctSpace/g,I).getRegex(),Ke=/[\p{Pi}\p{Ps}"']/u,ce=/(?!~)[\p{P}\p{S}]/u,We=/(?!~)[\s\p{P}\p{S}]/u,Xe=/(?:[^\s\p{P}\p{S}]|~)/u,Je=d(/link|precode-code|html/,"g").replace("link",/\[(?:[^\[\]`]|(?<a>`+)[^`]+\k<a>(?!`))*?\]\((?:\\[\s\S]|[^\\\(\)]|\((?:\\[\s\S]|[^\\\(\)])*\))*\)/).replace("precode-",Le?"(?<!`)()":"(^^|[^`])").replace("code",/(?<b>`+)[^`]+\k<b>(?!`)/).replace("html",/<(?! )[^<>]*?>/).getRegex(),he=/^(?:\*+(?:((?!\*)punct)|([^\s*]))?)|^_+(?:((?!_)punct)|([^\s_]))?/,Ve=d(he,"u").replace(/punct/g,$).getRegex(),Ye=d(he,"u").replace(/punct/g,ce).getRegex(),et=/^(?:\*+(?:((?!\*)(?!openQuote)punct)|([^\s*]))?)|^_+(?:((?!_)(?!openQuote)punct)|([^\s_]))?/,tt=d(et,"u").replace(/openQuote/g,Ke).replace(/punct/g,$).getRegex(),de="^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)punctSpace(\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|notPunctSpace(\\*+)(?=notPunctSpace)",nt=d(de,"gu").replace(/notPunctSpace/g,H).replace(/punctSpace/g,I).replace(/punct/g,$).getRegex(),rt=d(de,"gu").replace(/notPunctSpace/g,Xe).replace(/punctSpace/g,We).replace(/punct/g,ce).getRegex(),st="^[^_*]*?__[^_*]*?\\*[^_*]*?(?=__)|[^*]+(?=[^*])|(?!\\*)punct(\\*+)(?=[\\s]|$)|notPunctSpace(\\*+)(?!\\*)(?=punctSpace|$)|(?!\\*)[\\s](\\*+)(?=notPunctSpace)|[\\s](\\*+)(?!\\*)(?=punct)|(?!\\*)punct(\\*+)(?!\\*)(?=punct)|(?:(?!\\*)punct|notPunctSpace)(\\*+)(?!\\*)(?=notPunctSpace)",it=d(st,"gu").replace(/notPunctSpace/g,H).replace(/punctSpace/g,I).replace(/punct/g,$).getRegex(),ot=d("^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)punctSpace(_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)","gu").replace(/notPunctSpace/g,H).replace(/punctSpace/g,I).replace(/punct/g,$).getRegex(),at="^[^_*]*?\\*\\*[^_*]*?_[^_*]*?(?=\\*\\*)|[^_]+(?=[^_])|(?!_)punct(_+)(?=[\\s]|$)|notPunctSpace(_+)(?!_)(?=punctSpace|$)|(?!_)[\\s](_+)(?=notPunctSpace)|[\\s](_+)(?!_)(?=punct)|(?!_)punct(_+)(?!_)(?=punct)|(?:(?!_)punct|notPunctSpace)(_+)(?!_)(?=notPunctSpace)",lt=d(at,"gu").replace(/notPunctSpace/g,H).replace(/punctSpace/g,I).replace(/punct/g,$).getRegex(),pt=d(/^~~?(?:((?!~)punct)|[^\s~])/,"u").replace(/punct/g,$).getRegex(),ut="^[^~]+(?=[^~])|(?!~)punct(~~?)(?=[\\s]|$)|notPunctSpace(~~?)(?!~)(?=punctSpace|$)|(?!~)punctSpace(~~?)(?=notPunctSpace)|[\\s](~~?)(?!~)(?=punct)|(?!~)punct(~~?)(?!~)(?=punct)|notPunctSpace(~~?)(?=notPunctSpace)",ct=d(ut,"gu").replace(/notPunctSpace/g,H).replace(/punctSpace/g,I).replace(/punct/g,$).getRegex(),ht=d(/\\(punct)/,"gu").replace(/punct/g,$).getRegex(),dt=d(/^<(scheme:[^\s\x00-\x1f<>]*|email)>/).replace("scheme",/[a-zA-Z][a-zA-Z0-9+.-]{1,31}/).replace("email",/[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+(@)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![-_])/).getRegex(),kt=d(J).replace("(?:-->|$)","-->").getRegex(),gt=d("^comment|^</[a-zA-Z][\\w:-]*\\s*>|^<[a-zA-Z][\\w-]*(?:attribute)*?\\s*/?>|^<\\?[\\s\\S]*?\\?>|^<![a-zA-Z]+\\s[\\s\\S]*?>|^<!\\[CDATA\\[[\\s\\S]*?\\]\\]>").replace("comment",kt).replace("attribute",/\s+[a-zA-Z:_][\w.:-]*(?:\s*=\s*"[^"]*"|\s*=\s*'[^']*'|\s*=\s*[^\s"'=<>`]+)?/).getRegex(),G=/(?:\[(?:\\[\s\S]|[^\[\]\\])*\]|\\[\s\S]|`+(?!`)[^`]*?`+(?!`)|``+(?=\])|[^\[\]\\`])*?/,ft=d(/^!?\[(label)\]\(\s*(href)(?:(?:[ \t]+(?:\n[ \t]*)?|\n[ \t]*)(title))?\s*\)/).replace("label",G).replace("href",/<(?:\\.|[^\n<>\\])+>|[^ \t\n\x00-\x1f]+|(?=\))/).replace("title",/"(?:\\"?|[^"\\])*"|'(?:\\'?|[^'\\])*'|\((?:\\\)?|[^)\\])*\)/).getRegex(),ke=d(/^!?\[(label)\]\[(ref)\]/).replace("label",G).replace("ref",X).getRegex(),ge=d(/^!?\[(ref)\](?:\[\])?/).replace("ref",X).getRegex(),mt=d("reflink|nolink(?!\\()","g").replace("reflink",ke).replace("nolink",ge).getRegex(),oe=/[hH][tT][tT][pP][sS]?|[fF][tT][pP]/,Y={_backpedal:E,anyPunctuation:ht,autolink:dt,blockSkip:Je,br:ue,code:je,del:E,delLDelim:E,delRDelim:E,emStrongLDelim:Ve,emStrongRDelimAst:nt,emStrongRDelimUnd:ot,escape:Ne,link:ft,nolink:ge,punctuation:Ue,reflink:ke,reflinkSearch:mt,tag:gt,text:Fe,url:E},xt={...Y,emStrongLDelim:tt,emStrongRDelimAst:it,emStrongRDelimUnd:lt,link:d(/^!?\[(label)\]\((.*?)\)/).replace("label",G).getRegex(),reflink:d(/^!?\[(label)\]\s*\[([^\]]*)\]/).replace("label",G).getRegex()},U={...Y,emStrongRDelimAst:rt,emStrongLDelim:Ye,delLDelim:pt,delRDelim:ct,url:d(/^((?:protocol):\/\/|www\.)(?:[a-zA-Z0-9\-]+\.?)+[^\s<]*|^email/).replace("protocol",oe).replace("email",/[A-Za-z0-9._+-]+(@)[a-zA-Z0-9-_]+(?:\.[a-zA-Z0-9-_]*[a-zA-Z0-9])+(?![-_])/).getRegex(),_backpedal:/(?:[^?!.,:;*_'"~()&]+|\([^)]*\)|&(?![a-zA-Z0-9]+;$)|[?!.,:;*_'"~)]+(?!$))+/,del:/^(~~?)(?=[^\s~])((?:\\[\s\S]|[^\\])*?(?:\\[\s\S]|[^\s~\\]))\1(?=[^~]|$)/,text:d(/^(`+|~+|[^`~])(?:(?=[`~])|(?= {2,}\n)|(?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)|[\s\S]*?(?:(?=[\\<!\[`*~_]|\b_|protocol:\/\/|www\.|$)|[^ ](?= {2,}\n)|[^a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-](?=[a-zA-Z0-9.!#$%&'*+\/=?_`{\|}~-]+@)))/).replace("protocol",oe).getRegex()},bt={...U,br:d(ue).replace("{2,}","*").getRegex(),text:d(U.text).replace("\\b_","\\b_| {2,}\\n").replace(/\{2,\}/g,"*").getRegex()},Z={normal:V,gfm:Ge,pedantic:Qe},B={normal:Y,gfm:U,breaks:bt,pedantic:xt};var Rt={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"},fe=l=>Rt[l];function O(l,e){if(e){if(m.escapeTest.test(l))return l.replace(m.escapeReplace,fe)}else if(m.escapeTestNoEncode.test(l))return l.replace(m.escapeReplaceNoEncode,fe);return l}function ee(l){try{l=encodeURI(l).replace(m.percentDecode,"%")}catch{return null}return l}function te(l,e){let t=l.replace(m.findPipe,(r,i,o)=>{let p=!1,a=i;for(;--a>=0&&o[a]==="\\";)p=!p;return p?"|":" |"}),n=t.split(m.splitPipe),s=0;if(n[0].trim()||n.shift(),n.length>0&&!n.at(-1)?.trim()&&n.pop(),e)if(n.length>e)n.splice(e);else for(;n.length<e;)n.push("");for(;s<n.length;s++)n[s]=n[s].trim().replace(m.slashPipe,"|");return n}function L(l,e,t){let n=l.length;if(n===0)return"";let s=0;for(;s<n;){let r=l.charAt(n-s-1);if(r===e&&!t)s++;else if(r!==e&&t)s++;else break}return l.slice(0,n-s)}function ne(l){let e=l.split(`
+`),t=e.length-1;for(;t>=0&&m.blankLine.test(e[t]);)t--;return e.length-t<=2?l:e.slice(0,t+1).join(`
+`)}function me(l,e){if(l.indexOf(e[1])===-1)return-1;let t=0;for(let n=0;n<l.length;n++)if(l[n]==="\\")n++;else if(l[n]===e[0])t++;else if(l[n]===e[1]&&(t--,t<0))return n;return t>0?-2:-1}function xe(l,e=0){let t=e,n="";for(let s of l)if(s==="	"){let r=4-t%4;n+=" ".repeat(r),t+=r}else n+=s,t++;return n}function be(l,e,t,n,s){let r=e.href,i=e.title||null,o=l[1].replace(s.other.outputLinkReplace,"$1");n.state.inLink=!0;let p={type:l[0].charAt(0)==="!"?"image":"link",raw:t,href:r,title:i,text:o,tokens:n.inlineTokens(o)};return n.state.inLink=!1,p}function Tt(l,e,t){let n=l.match(t.other.indentCodeCompensation);if(n===null)return e;let s=n[1];return e.split(`
+`).map(r=>{let i=r.match(t.other.beginningSpace);if(i===null)return r;let[o]=i;return o.length>=s.length?r.slice(s.length):r}).join(`
+`)}var w=class{options;rules;lexer;constructor(e){this.options=e||R}space(e){let t=this.rules.block.newline.exec(e);if(t&&t[0].length>0)return{type:"space",raw:t[0]}}code(e){let t=this.rules.block.code.exec(e);if(t){let n=this.options.pedantic?t[0]:ne(t[0]),s=n.replace(this.rules.other.codeRemoveIndent,"");return{type:"code",raw:n,codeBlockStyle:"indented",text:s}}}fences(e){let t=this.rules.block.fences.exec(e);if(t){let n=t[0],s=Tt(n,t[3]||"",this.rules);return{type:"code",raw:n,lang:t[2]?t[2].trim().replace(this.rules.inline.anyPunctuation,"$1"):t[2],text:s}}}heading(e){let t=this.rules.block.heading.exec(e);if(t){let n=t[2].trim();if(this.rules.other.endingHash.test(n)){let s=L(n,"#");(this.options.pedantic||!s||this.rules.other.endingSpaceChar.test(s))&&(n=s.trim())}return{type:"heading",raw:L(t[0],`
+`),depth:t[1].length,text:n,tokens:this.lexer.inline(n)}}}hr(e){let t=this.rules.block.hr.exec(e);if(t)return{type:"hr",raw:L(t[0],`
+`)}}blockquote(e){let t=this.rules.block.blockquote.exec(e);if(t){let n=L(t[0],`
+`).split(`
+`),s="",r="",i=[];for(;n.length>0;){let o=!1,p=[],a;for(a=0;a<n.length;a++)if(this.rules.other.blockquoteStart.test(n[a]))p.push(n[a]),o=!0;else if(!o)p.push(n[a]);else break;n=n.slice(a);let u=p.join(`
+`),c=u.replace(this.rules.other.blockquoteSetextReplace,`
+    $1`).replace(this.rules.other.blockquoteSetextReplace2,"");s=s?`${s}
+${u}`:u,r=r?`${r}
+${c}`:c;let h=this.lexer.state.top;if(this.lexer.state.top=!0,this.lexer.blockTokens(c,i,!0),this.lexer.state.top=h,n.length===0)break;let k=i.at(-1);if(k?.type==="code")break;if(k?.type==="blockquote"){let T=k,f=n.join(`
+`),S=T.raw+`
+`+f.replace(this.rules.other.blockquoteSetextReplace2,""),M=this.blockquote(S);i[i.length-1]=M,s=`${s}
+${f}`,r=r.substring(0,r.length-T.text.length)+M.text;break}else if(k?.type==="list"){let T=k,f=T.raw+`
+`+n.join(`
+`),S=this.list(f);i[i.length-1]=S,s=s.substring(0,s.length-k.raw.length)+S.raw,r=r.substring(0,r.length-T.raw.length)+S.raw,n=f.substring(i.at(-1).raw.length).split(`
+`);continue}}return{type:"blockquote",raw:s,tokens:i,text:r}}}list(e){let t=this.rules.block.list.exec(e);if(t){let n=t[1].trim(),s=n.length>1,r={type:"list",raw:"",ordered:s,start:s?+n.slice(0,-1):"",loose:!1,items:[]};n=s?`\\d{1,9}\\${n.slice(-1)}`:`\\${n}`,this.options.pedantic&&(n=s?n:"[*+-]");let i=this.rules.other.listItemRegex(n),o=!1;for(;e;){let a=!1,u="",c="";if(!(t=i.exec(e))||this.rules.block.hr.test(e))break;u=t[0],e=e.substring(u.length);let h=xe(t[2].split(`
+`,1)[0],t[1].length),k=e.split(`
+`,1)[0],T=!h.trim(),f=0;if(this.options.pedantic?(f=2,c=h.trimStart()):T?f=t[1].length+1:(f=h.search(this.rules.other.nonSpaceChar),f=f>4?1:f,c=h.slice(f),f+=t[1].length),T&&this.rules.other.blankLine.test(k)&&(u+=k+`
+`,e=e.substring(k.length+1),a=!0),!a){let S=this.rules.other.nextBulletRegex(f),M=this.rules.other.hrRegex(f),re=this.rules.other.fencesBeginRegex(f),se=this.rules.other.headingBeginRegex(f),Te=this.rules.other.htmlBeginRegex(f),Oe=this.rules.other.blockquoteBeginRegex(f);for(;e;){let N=e.split(`
+`,1)[0],q;if(k=N,this.options.pedantic?(k=k.replace(this.rules.other.listReplaceNesting,"  "),q=k):q=k.replace(this.rules.other.tabCharGlobal,"    "),re.test(k)||se.test(k)||Te.test(k)||Oe.test(k)||S.test(k)||M.test(k))break;if(q.search(this.rules.other.nonSpaceChar)>=f||!k.trim())c+=`
+`+q.slice(f);else{if(T||h.replace(this.rules.other.tabCharGlobal,"    ").search(this.rules.other.nonSpaceChar)>=4||re.test(h)||se.test(h)||M.test(h))break;c+=`
+`+k}T=!k.trim(),u+=N+`
+`,e=e.substring(N.length+1),h=q.slice(f)}}r.loose||(o?r.loose=!0:this.rules.other.doubleBlankLine.test(u)&&(o=!0)),r.items.push({type:"list_item",raw:u,task:!!this.options.gfm&&this.rules.other.listIsTask.test(c),loose:!1,text:c,tokens:[]}),r.raw+=u}let p=r.items.at(-1);if(p)p.raw=p.raw.trimEnd(),p.text=p.text.trimEnd();else return;r.raw=r.raw.trimEnd();for(let a of r.items)if(this.lexer.state.top=!1,a.tokens=this.lexer.blockTokens(a.text,[]),!r.loose){let u=a.tokens.filter(h=>h.type==="space"),c=u.length>0&&u.some(h=>this.rules.other.anyLine.test(h.raw));r.loose=c}for(let a of r.items){let u=a.tokens[0];if(a.task&&(u?.type==="text"||u?.type==="paragraph")){a.text=a.text.replace(this.rules.other.listReplaceTask,""),u.raw=u.raw.replace(this.rules.other.listReplaceTask,""),u.text=u.text.replace(this.rules.other.listReplaceTask,"");for(let h=this.lexer.inlineQueue.length-1;h>=0;h--)if(this.rules.other.listIsTask.test(this.lexer.inlineQueue[h].src)){this.lexer.inlineQueue[h].src=this.lexer.inlineQueue[h].src.replace(this.rules.other.listReplaceTask,"");break}let c=this.rules.other.listTaskCheckbox.exec(a.raw);if(c){let h={type:"checkbox",raw:c[0]+" ",checked:c[0]!=="[ ]"};a.checked=h.checked,r.loose?a.tokens[0]&&["paragraph","text"].includes(a.tokens[0].type)&&"tokens"in a.tokens[0]&&a.tokens[0].tokens?(a.tokens[0].raw=h.raw+a.tokens[0].raw,a.tokens[0].text=h.raw+a.tokens[0].text,a.tokens[0].tokens.unshift(h)):a.tokens.unshift({type:"paragraph",raw:h.raw,text:h.raw,tokens:[h]}):a.tokens.unshift(h)}}else a.task&&(a.task=!1)}if(r.loose)for(let a of r.items){a.loose=!0;for(let u of a.tokens)u.type==="text"&&(u.type="paragraph")}return r}}html(e){let t=this.rules.block.html.exec(e);if(t){let n=ne(t[0]);return{type:"html",block:!0,raw:n,pre:t[1]==="pre"||t[1]==="script"||t[1]==="style",text:n}}}def(e){let t=this.rules.block.def.exec(e);if(t){let n=t[1].toLowerCase().replace(this.rules.other.multipleSpaceGlobal," "),s=t[2]?t[2].replace(this.rules.other.hrefBrackets,"$1").replace(this.rules.inline.anyPunctuation,"$1"):"",r=t[3]?t[3].substring(1,t[3].length-1).replace(this.rules.inline.anyPunctuation,"$1"):t[3];return{type:"def",tag:n,raw:L(t[0],`
+`),href:s,title:r}}}table(e){let t=this.rules.block.table.exec(e);if(!t||!this.rules.other.tableDelimiter.test(t[2]))return;let n=te(t[1]),s=t[2].replace(this.rules.other.tableAlignChars,"").split("|"),r=t[3]?.trim()?t[3].replace(this.rules.other.tableRowBlankLine,"").split(`
+`):[],i={type:"table",raw:L(t[0],`
+`),header:[],align:[],rows:[]};if(n.length===s.length){for(let o of s)this.rules.other.tableAlignRight.test(o)?i.align.push("right"):this.rules.other.tableAlignCenter.test(o)?i.align.push("center"):this.rules.other.tableAlignLeft.test(o)?i.align.push("left"):i.align.push(null);for(let o=0;o<n.length;o++)i.header.push({text:n[o],tokens:this.lexer.inline(n[o]),header:!0,align:i.align[o]});for(let o of r)i.rows.push(te(o,i.header.length).map((p,a)=>({text:p,tokens:this.lexer.inline(p),header:!1,align:i.align[a]})));return i}}lheading(e){let t=this.rules.block.lheading.exec(e);if(t){let n=t[1].trim();return{type:"heading",raw:L(t[0],`
+`),depth:t[2].charAt(0)==="="?1:2,text:n,tokens:this.lexer.inline(n)}}}paragraph(e){let t=this.rules.block.paragraph.exec(e);if(t){let n=t[1].charAt(t[1].length-1)===`
+`?t[1].slice(0,-1):t[1];return{type:"paragraph",raw:t[0],text:n,tokens:this.lexer.inline(n)}}}text(e){let t=this.rules.block.text.exec(e);if(t)return{type:"text",raw:t[0],text:t[0],tokens:this.lexer.inline(t[0])}}escape(e){let t=this.rules.inline.escape.exec(e);if(t)return{type:"escape",raw:t[0],text:t[1]}}tag(e){let t=this.rules.inline.tag.exec(e);if(t)return!this.lexer.state.inLink&&this.rules.other.startATag.test(t[0])?this.lexer.state.inLink=!0:this.lexer.state.inLink&&this.rules.other.endATag.test(t[0])&&(this.lexer.state.inLink=!1),!this.lexer.state.inRawBlock&&this.rules.other.startPreScriptTag.test(t[0])?this.lexer.state.inRawBlock=!0:this.lexer.state.inRawBlock&&this.rules.other.endPreScriptTag.test(t[0])&&(this.lexer.state.inRawBlock=!1),{type:"html",raw:t[0],inLink:this.lexer.state.inLink,inRawBlock:this.lexer.state.inRawBlock,block:!1,text:t[0]}}link(e){let t=this.rules.inline.link.exec(e);if(t){let n=t[2].trim();if(!this.options.pedantic&&this.rules.other.startAngleBracket.test(n)){if(!this.rules.other.endAngleBracket.test(n))return;let i=L(n.slice(0,-1),"\\");if((n.length-i.length)%2===0)return}else{let i=me(t[2],"()");if(i===-2)return;if(i>-1){let p=(t[0].indexOf("!")===0?5:4)+t[1].length+i;t[2]=t[2].substring(0,i),t[0]=t[0].substring(0,p).trim(),t[3]=""}}let s=t[2],r="";if(this.options.pedantic){let i=this.rules.other.pedanticHrefTitle.exec(s);i&&(s=i[1],r=i[3])}else r=t[3]?t[3].slice(1,-1):"";return s=s.trim(),this.rules.other.startAngleBracket.test(s)&&(this.options.pedantic&&!this.rules.other.endAngleBracket.test(n)?s=s.slice(1):s=s.slice(1,-1)),be(t,{href:s&&s.replace(this.rules.inline.anyPunctuation,"$1"),title:r&&r.replace(this.rules.inline.anyPunctuation,"$1")},t[0],this.lexer,this.rules)}}reflink(e,t){let n;if((n=this.rules.inline.reflink.exec(e))||(n=this.rules.inline.nolink.exec(e))){let s=(n[2]||n[1]).replace(this.rules.other.multipleSpaceGlobal," "),r=t[s.toLowerCase()];if(!r){let i=n[0].charAt(0);return{type:"text",raw:i,text:i}}return be(n,r,n[0],this.lexer,this.rules)}}emStrong(e,t,n=""){let s=this.rules.inline.emStrongLDelim.exec(e);if(!s||!s[1]&&!s[2]&&!s[3]&&!s[4]||s[4]&&n.match(this.rules.other.unicodeAlphaNumeric))return;if(!(s[1]||s[3]||"")||!n||this.rules.inline.punctuation.exec(n)){let i=[...s[0]].length-1,o,p,a=i,u=0,c=s[0][0],h=n===c,k=c==="*"?this.rules.inline.emStrongRDelimAst:this.rules.inline.emStrongRDelimUnd;for(k.lastIndex=0,t=t.slice(-1*e.length+i);(s=k.exec(t))!==null;){if(o=s[1]||s[2]||s[3]||s[4]||s[5]||s[6],!o)continue;if(p=[...o].length,s[3]||s[4]){a+=p;continue}else if(s[5]||s[6]){if(i%3&&!((i+p)%3)){u+=p;continue}if(h)break}if(a-=p,a>0)continue;p=Math.min(p,p+a+u);let T=[...s[0]][0].length,f=e.slice(0,i+s.index+T+p);if(Math.min(i,p)%2){let M=f.slice(1,-1);return{type:"em",raw:f,text:M,tokens:this.lexer.inlineTokens(M)}}let S=f.slice(2,-2);return{type:"strong",raw:f,text:S,tokens:this.lexer.inlineTokens(S)}}}}codespan(e){let t=this.rules.inline.code.exec(e);if(t){let n=t[2].replace(this.rules.other.newLineCharGlobal," "),s=this.rules.other.nonSpaceChar.test(n),r=this.rules.other.startingSpaceChar.test(n)&&this.rules.other.endingSpaceChar.test(n);return s&&r&&(n=n.substring(1,n.length-1)),{type:"codespan",raw:t[0],text:n}}}br(e){let t=this.rules.inline.br.exec(e);if(t)return{type:"br",raw:t[0]}}del(e,t,n=""){let s=this.rules.inline.delLDelim.exec(e);if(!s)return;if(!(s[1]||"")||!n||this.rules.inline.punctuation.exec(n)){let i=[...s[0]].length-1,o,p,a=i,u=this.rules.inline.delRDelim;for(u.lastIndex=0,t=t.slice(-1*e.length+i);(s=u.exec(t))!==null;){if(o=s[1]||s[2]||s[3]||s[4]||s[5]||s[6],!o||(p=[...o].length,p!==i))continue;if(s[3]||s[4]){a+=p;continue}if(a-=p,a>0)continue;p=Math.min(p,p+a);let c=[...s[0]][0].length,h=e.slice(0,i+s.index+c+p),k=h.slice(i,-i);return{type:"del",raw:h,text:k,tokens:this.lexer.inlineTokens(k)}}}}autolink(e){let t=this.rules.inline.autolink.exec(e);if(t){let n,s;return t[2]==="@"?(n=t[1],s="mailto:"+n):(n=t[1],s=n),{type:"link",raw:t[0],text:n,href:s,tokens:[{type:"text",raw:n,text:n}]}}}url(e){let t;if(t=this.rules.inline.url.exec(e)){let n,s;if(t[2]==="@")n=t[0],s="mailto:"+n;else{let r;do r=t[0],t[0]=this.rules.inline._backpedal.exec(t[0])?.[0]??"";while(r!==t[0]);n=t[0],t[1]==="www."?s="http://"+t[0]:s=t[0]}return{type:"link",raw:t[0],text:n,href:s,tokens:[{type:"text",raw:n,text:n}]}}}inlineText(e){let t=this.rules.inline.text.exec(e);if(t){let n=this.lexer.state.inRawBlock;return{type:"text",raw:t[0],text:t[0],escaped:n}}}};var x=class l{tokens;options;state;inlineQueue;tokenizer;constructor(e){this.tokens=[],this.tokens.links=Object.create(null),this.options=e||R,this.options.tokenizer=this.options.tokenizer||new w,this.tokenizer=this.options.tokenizer,this.tokenizer.options=this.options,this.tokenizer.lexer=this,this.inlineQueue=[],this.state={inLink:!1,inRawBlock:!1,top:!0};let t={other:m,block:Z.normal,inline:B.normal};this.options.pedantic?(t.block=Z.pedantic,t.inline=B.pedantic):this.options.gfm&&(t.block=Z.gfm,this.options.breaks?t.inline=B.breaks:t.inline=B.gfm),this.tokenizer.rules=t}static get rules(){return{block:Z,inline:B}}static lex(e,t){return new l(t).lex(e)}static lexInline(e,t){return new l(t).inlineTokens(e)}lex(e){e=e.replace(m.carriageReturn,`
+`),this.blockTokens(e,this.tokens);for(let t=0;t<this.inlineQueue.length;t++){let n=this.inlineQueue[t];this.inlineTokens(n.src,n.tokens)}return this.inlineQueue=[],this.tokens}blockTokens(e,t=[],n=!1){this.tokenizer.lexer=this,this.options.pedantic&&(e=e.replace(m.tabCharGlobal,"    ").replace(m.spaceLine,""));let s=1/0;for(;e;){if(e.length<s)s=e.length;else{this.infiniteLoopError(e.charCodeAt(0));break}let r;if(this.options.extensions?.block?.some(o=>(r=o.call({lexer:this},e,t))?(e=e.substring(r.raw.length),t.push(r),!0):!1))continue;if(r=this.tokenizer.space(e)){e=e.substring(r.raw.length);let o=t.at(-1);r.raw.length===1&&o!==void 0?o.raw+=`
+`:t.push(r);continue}if(r=this.tokenizer.code(e)){e=e.substring(r.raw.length);let o=t.at(-1);o?.type==="paragraph"||o?.type==="text"?(o.raw+=(o.raw.endsWith(`
+`)?"":`
+`)+r.raw,o.text+=`
+`+r.text,this.inlineQueue.at(-1).src=o.text):t.push(r);continue}if(r=this.tokenizer.fences(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.heading(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.hr(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.blockquote(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.list(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.html(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.def(e)){e=e.substring(r.raw.length);let o=t.at(-1);o?.type==="paragraph"||o?.type==="text"?(o.raw+=(o.raw.endsWith(`
+`)?"":`
+`)+r.raw,o.text+=`
+`+r.raw,this.inlineQueue.at(-1).src=o.text):this.tokens.links[r.tag]||(this.tokens.links[r.tag]={href:r.href,title:r.title},t.push(r));continue}if(r=this.tokenizer.table(e)){e=e.substring(r.raw.length),t.push(r);continue}if(r=this.tokenizer.lheading(e)){e=e.substring(r.raw.length),t.push(r);continue}let i=e;if(this.options.extensions?.startBlock){let o=1/0,p=e.slice(1),a;this.options.extensions.startBlock.forEach(u=>{a=u.call({lexer:this},p),typeof a=="number"&&a>=0&&(o=Math.min(o,a))}),o<1/0&&o>=0&&(i=e.substring(0,o+1))}if(this.state.top&&(r=this.tokenizer.paragraph(i))){let o=t.at(-1);n&&o?.type==="paragraph"?(o.raw+=(o.raw.endsWith(`
+`)?"":`
+`)+r.raw,o.text+=`
+`+r.text,this.inlineQueue.pop(),this.inlineQueue.at(-1).src=o.text):t.push(r),n=i.length!==e.length,e=e.substring(r.raw.length);continue}if(r=this.tokenizer.text(e)){e=e.substring(r.raw.length);let o=t.at(-1);o?.type==="text"?(o.raw+=(o.raw.endsWith(`
+`)?"":`
+`)+r.raw,o.text+=`
+`+r.text,this.inlineQueue.pop(),this.inlineQueue.at(-1).src=o.text):t.push(r);continue}if(e){this.infiniteLoopError(e.charCodeAt(0));break}}return this.state.top=!0,t}inline(e,t=[]){return this.inlineQueue.push({src:e,tokens:t}),t}inlineTokens(e,t=[]){this.tokenizer.lexer=this;let n=e;if(this.tokens.links){let o=Object.keys(this.tokens.links);o.length>0&&(n=n.replace(this.tokenizer.rules.inline.reflinkSearch,p=>o.includes(p.slice(p.lastIndexOf("[")+1,-1))?"["+"a".repeat(p.length-2)+"]":p))}n=n.replace(this.tokenizer.rules.inline.anyPunctuation,o=>"+".repeat(o.length)),n=n.replace(this.tokenizer.rules.inline.blockSkip,(o,p,a)=>{let u=a?a.length:0;return o.slice(0,u)+"["+"a".repeat(o.length-u-2)+"]"}),n=this.options.hooks?.emStrongMask?.call({lexer:this},n)??n;let s=!1,r="",i=1/0;for(;e;){if(e.length<i)i=e.length;else{this.infiniteLoopError(e.charCodeAt(0));break}s||(r=""),s=!1;let o;if(this.options.extensions?.inline?.some(a=>(o=a.call({lexer:this},e,t))?(e=e.substring(o.raw.length),t.push(o),!0):!1))continue;if(o=this.tokenizer.escape(e)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.tag(e)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.link(e)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.reflink(e,this.tokens.links)){e=e.substring(o.raw.length);let a=t.at(-1);o.type==="text"&&a?.type==="text"?(a.raw+=o.raw,a.text+=o.text):t.push(o);continue}if(o=this.tokenizer.emStrong(e,n,r)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.codespan(e)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.br(e)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.del(e,n,r)){e=e.substring(o.raw.length),t.push(o);continue}if(o=this.tokenizer.autolink(e)){e=e.substring(o.raw.length),t.push(o);continue}if(!this.state.inLink&&(o=this.tokenizer.url(e))){e=e.substring(o.raw.length),t.push(o);continue}let p=e;if(this.options.extensions?.startInline){let a=1/0,u=e.slice(1),c;this.options.extensions.startInline.forEach(h=>{c=h.call({lexer:this},u),typeof c=="number"&&c>=0&&(a=Math.min(a,c))}),a<1/0&&a>=0&&(p=e.substring(0,a+1))}if(o=this.tokenizer.inlineText(p)){e=e.substring(o.raw.length),o.raw.slice(-1)!=="_"&&(r=o.raw.slice(-1)),s=!0;let a=t.at(-1);a?.type==="text"?(a.raw+=o.raw,a.text+=o.text):t.push(o);continue}if(e){this.infiniteLoopError(e.charCodeAt(0));break}}return t}infiniteLoopError(e){let t="Infinite loop on byte: "+e;if(this.options.silent)console.error(t);else throw new Error(t)}};var y=class{options;parser;constructor(e){this.options=e||R}space(e){return""}code({text:e,lang:t,escaped:n}){let s=(t||"").match(m.notSpaceStart)?.[0],r=e.replace(m.endingNewline,"")+`
+`;return s?'<pre><code class="language-'+O(s)+'">'+(n?r:O(r,!0))+`</code></pre>
+`:"<pre><code>"+(n?r:O(r,!0))+`</code></pre>
+`}blockquote({tokens:e}){return`<blockquote>
+${this.parser.parse(e)}</blockquote>
+`}html({text:e}){return e}def(e){return""}heading({tokens:e,depth:t}){return`<h${t}>${this.parser.parseInline(e)}</h${t}>
+`}hr(e){return`<hr>
+`}list(e){let t=e.ordered,n=e.start,s="";for(let o=0;o<e.items.length;o++){let p=e.items[o];s+=this.listitem(p)}let r=t?"ol":"ul",i=t&&n!==1?' start="'+n+'"':"";return"<"+r+i+`>
+`+s+"</"+r+`>
+`}listitem(e){return`<li>${this.parser.parse(e.tokens)}</li>
+`}checkbox({checked:e}){return"<input "+(e?'checked="" ':"")+'disabled="" type="checkbox"> '}paragraph({tokens:e}){return`<p>${this.parser.parseInline(e)}</p>
+`}table(e){let t="",n="";for(let r=0;r<e.header.length;r++)n+=this.tablecell(e.header[r]);t+=this.tablerow({text:n});let s="";for(let r=0;r<e.rows.length;r++){let i=e.rows[r];n="";for(let o=0;o<i.length;o++)n+=this.tablecell(i[o]);s+=this.tablerow({text:n})}return s&&(s=`<tbody>${s}</tbody>`),`<table>
+<thead>
+`+t+`</thead>
+`+s+`</table>
+`}tablerow({text:e}){return`<tr>
+${e}</tr>
+`}tablecell(e){let t=this.parser.parseInline(e.tokens),n=e.header?"th":"td";return(e.align?`<${n} align="${e.align}">`:`<${n}>`)+t+`</${n}>
+`}strong({tokens:e}){return`<strong>${this.parser.parseInline(e)}</strong>`}em({tokens:e}){return`<em>${this.parser.parseInline(e)}</em>`}codespan({text:e}){return`<code>${O(e,!0)}</code>`}br(e){return"<br>"}del({tokens:e}){return`<del>${this.parser.parseInline(e)}</del>`}link({href:e,title:t,tokens:n}){let s=this.parser.parseInline(n),r=ee(e);if(r===null)return s;e=r;let i='<a href="'+e+'"';return t&&(i+=' title="'+O(t)+'"'),i+=">"+s+"</a>",i}image({href:e,title:t,text:n,tokens:s}){s&&(n=this.parser.parseInline(s,this.parser.textRenderer));let r=ee(e);if(r===null)return O(n);e=r;let i=`<img src="${e}" alt="${O(n)}"`;return t&&(i+=` title="${O(t)}"`),i+=">",i}text(e){return"tokens"in e&&e.tokens?this.parser.parseInline(e.tokens):"escaped"in e&&e.escaped?e.text:O(e.text)}};var _=class{strong({text:e}){return e}em({text:e}){return e}codespan({text:e}){return e}del({text:e}){return e}html({text:e}){return e}text({text:e}){return e}link({text:e}){return""+e}image({text:e}){return""+e}br(){return""}checkbox({raw:e}){return e}};var b=class l{options;renderer;textRenderer;constructor(e){this.options=e||R,this.options.renderer=this.options.renderer||new y,this.renderer=this.options.renderer,this.renderer.options=this.options,this.renderer.parser=this,this.textRenderer=new _}static parse(e,t){return new l(t).parse(e)}static parseInline(e,t){return new l(t).parseInline(e)}parse(e){this.renderer.parser=this;let t="";for(let n=0;n<e.length;n++){let s=e[n];if(this.options.extensions?.renderers?.[s.type]){let i=s,o=this.options.extensions.renderers[i.type].call({parser:this},i);if(o!==!1||!["space","hr","heading","code","table","blockquote","list","checkbox","html","def","paragraph","text"].includes(i.type)){t+=o||"";continue}}let r=s;switch(r.type){case"space":{t+=this.renderer.space(r);break}case"hr":{t+=this.renderer.hr(r);break}case"heading":{t+=this.renderer.heading(r);break}case"code":{t+=this.renderer.code(r);break}case"table":{t+=this.renderer.table(r);break}case"blockquote":{t+=this.renderer.blockquote(r);break}case"list":{t+=this.renderer.list(r);break}case"checkbox":{t+=this.renderer.checkbox(r);break}case"html":{t+=this.renderer.html(r);break}case"def":{t+=this.renderer.def(r);break}case"paragraph":{t+=this.renderer.paragraph(r);break}case"text":{t+=this.renderer.text(r);break}default:{let i='Token with "'+r.type+'" type was not found.';if(this.options.silent)return console.error(i),"";throw new Error(i)}}}return t}parseInline(e,t=this.renderer){this.renderer.parser=this;let n="";for(let s=0;s<e.length;s++){let r=e[s];if(this.options.extensions?.renderers?.[r.type]){let o=this.options.extensions.renderers[r.type].call({parser:this},r);if(o!==!1||!["escape","html","link","image","checkbox","strong","em","codespan","br","del","text"].includes(r.type)){n+=o||"";continue}}let i=r;switch(i.type){case"escape":{n+=t.text(i);break}case"html":{n+=t.html(i);break}case"link":{n+=t.link(i);break}case"image":{n+=t.image(i);break}case"checkbox":{n+=t.checkbox(i);break}case"strong":{n+=t.strong(i);break}case"em":{n+=t.em(i);break}case"codespan":{n+=t.codespan(i);break}case"br":{n+=t.br(i);break}case"del":{n+=t.del(i);break}case"text":{n+=t.text(i);break}default:{let o='Token with "'+i.type+'" type was not found.';if(this.options.silent)return console.error(o),"";throw new Error(o)}}}return n}};var P=class{options;block;constructor(e){this.options=e||R}static passThroughHooks=new Set(["preprocess","postprocess","processAllTokens","emStrongMask"]);static passThroughHooksRespectAsync=new Set(["preprocess","postprocess","processAllTokens"]);preprocess(e){return e}postprocess(e){return e}processAllTokens(e){return e}emStrongMask(e){return e}provideLexer(e=this.block){return e?x.lex:x.lexInline}provideParser(e=this.block){return e?b.parse:b.parseInline}};var D=class{defaults=z();options=this.setOptions;parse=this.parseMarkdown(!0);parseInline=this.parseMarkdown(!1);Parser=b;Renderer=y;TextRenderer=_;Lexer=x;Tokenizer=w;Hooks=P;constructor(...e){this.use(...e)}walkTokens(e,t){let n=[];for(let s of e)switch(n=n.concat(t.call(this,s)),s.type){case"table":{let r=s;for(let i of r.header)n=n.concat(this.walkTokens(i.tokens,t));for(let i of r.rows)for(let o of i)n=n.concat(this.walkTokens(o.tokens,t));break}case"list":{let r=s;n=n.concat(this.walkTokens(r.items,t));break}default:{let r=s;this.defaults.extensions?.childTokens?.[r.type]?this.defaults.extensions.childTokens[r.type].forEach(i=>{let o=r[i].flat(1/0);n=n.concat(this.walkTokens(o,t))}):r.tokens&&(n=n.concat(this.walkTokens(r.tokens,t)))}}return n}use(...e){let t=this.defaults.extensions||{renderers:{},childTokens:{}};return e.forEach(n=>{let s={...n};if(s.async=this.defaults.async||s.async||!1,n.extensions&&(n.extensions.forEach(r=>{if(!r.name)throw new Error("extension name required");if("renderer"in r){let i=t.renderers[r.name];i?t.renderers[r.name]=function(...o){let p=r.renderer.apply(this,o);return p===!1&&(p=i.apply(this,o)),p}:t.renderers[r.name]=r.renderer}if("tokenizer"in r){if(!r.level||r.level!=="block"&&r.level!=="inline")throw new Error("extension level must be 'block' or 'inline'");let i=t[r.level];i?i.unshift(r.tokenizer):t[r.level]=[r.tokenizer],r.start&&(r.level==="block"?t.startBlock?t.startBlock.push(r.start):t.startBlock=[r.start]:r.level==="inline"&&(t.startInline?t.startInline.push(r.start):t.startInline=[r.start]))}"childTokens"in r&&r.childTokens&&(t.childTokens[r.name]=r.childTokens)}),s.extensions=t),n.renderer){let r=this.defaults.renderer||new y(this.defaults);for(let i in n.renderer){if(!(i in r))throw new Error(`renderer '${i}' does not exist`);if(["options","parser"].includes(i))continue;let o=i,p=n.renderer[o],a=r[o];r[o]=(...u)=>{let c=p.apply(r,u);return c===!1&&(c=a.apply(r,u)),c||""}}s.renderer=r}if(n.tokenizer){let r=this.defaults.tokenizer||new w(this.defaults);for(let i in n.tokenizer){if(!(i in r))throw new Error(`tokenizer '${i}' does not exist`);if(["options","rules","lexer"].includes(i))continue;let o=i,p=n.tokenizer[o],a=r[o];r[o]=(...u)=>{let c=p.apply(r,u);return c===!1&&(c=a.apply(r,u)),c}}s.tokenizer=r}if(n.hooks){let r=this.defaults.hooks||new P;for(let i in n.hooks){if(!(i in r))throw new Error(`hook '${i}' does not exist`);if(["options","block"].includes(i))continue;let o=i,p=n.hooks[o],a=r[o];P.passThroughHooks.has(i)?r[o]=u=>{if(this.defaults.async&&P.passThroughHooksRespectAsync.has(i))return(async()=>{let h=await p.call(r,u);return a.call(r,h)})();let c=p.call(r,u);return a.call(r,c)}:r[o]=(...u)=>{if(this.defaults.async)return(async()=>{let h=await p.apply(r,u);return h===!1&&(h=await a.apply(r,u)),h})();let c=p.apply(r,u);return c===!1&&(c=a.apply(r,u)),c}}s.hooks=r}if(n.walkTokens){let r=this.defaults.walkTokens,i=n.walkTokens;s.walkTokens=function(o){let p=[];return p.push(i.call(this,o)),r&&(p=p.concat(r.call(this,o))),p}}this.defaults={...this.defaults,...s}}),this}setOptions(e){return this.defaults={...this.defaults,...e},this}lexer(e,t){return x.lex(e,t??this.defaults)}parser(e,t){return b.parse(e,t??this.defaults)}parseMarkdown(e){return(n,s)=>{let r={...s},i={...this.defaults,...r},o=this.onError(!!i.silent,!!i.async);if(this.defaults.async===!0&&r.async===!1)return o(new Error("marked(): The async option was set to true by an extension. Remove async: false from the parse options object to return a Promise."));if(typeof n>"u"||n===null)return o(new Error("marked(): input parameter is undefined or null"));if(typeof n!="string")return o(new Error("marked(): input parameter is of type "+Object.prototype.toString.call(n)+", string expected"));if(i.hooks&&(i.hooks.options=i,i.hooks.block=e),i.async)return(async()=>{let p=i.hooks?await i.hooks.preprocess(n):n,u=await(i.hooks?await i.hooks.provideLexer(e):e?x.lex:x.lexInline)(p,i),c=i.hooks?await i.hooks.processAllTokens(u):u;i.walkTokens&&await Promise.all(this.walkTokens(c,i.walkTokens));let k=await(i.hooks?await i.hooks.provideParser(e):e?b.parse:b.parseInline)(c,i);return i.hooks?await i.hooks.postprocess(k):k})().catch(o);try{i.hooks&&(n=i.hooks.preprocess(n));let a=(i.hooks?i.hooks.provideLexer(e):e?x.lex:x.lexInline)(n,i);i.hooks&&(a=i.hooks.processAllTokens(a)),i.walkTokens&&this.walkTokens(a,i.walkTokens);let c=(i.hooks?i.hooks.provideParser(e):e?b.parse:b.parseInline)(a,i);return i.hooks&&(c=i.hooks.postprocess(c)),c}catch(p){return o(p)}}}onError(e,t){return n=>{if(n.message+=`
+Please report this to https://github.com/markedjs/marked.`,e){let s="<p>An error occurred:</p><pre>"+O(n.message+"",!0)+"</pre>";return t?Promise.resolve(s):s}if(t)return Promise.reject(n);throw n}}};var C=new D;function g(l,e){return C.parse(l,e)}g.options=g.setOptions=function(l){return C.setOptions(l),g.defaults=C.defaults,F(g.defaults),g};g.getDefaults=z;g.defaults=R;function Re(...l){return C.use(...l),g.defaults=C.defaults,F(g.defaults),g}g.use=Re;g.walkTokens=function(l,e){return C.walkTokens(l,e)};g.parseInline=C.parseInline;g.Parser=b;g.parser=b.parse;g.Renderer=y;g.TextRenderer=_;g.Lexer=x;g.lexer=x.lex;g.Tokenizer=w;g.Hooks=P;g.parse=g;var Ot=g.options,wt=g.setOptions,yt=g.walkTokens,Pt=g.parseInline,St=g,_t=b.parse,$t=x.lex;
+
+if(__exports != exports)module.exports = exports;return module.exports}));
+
+</script>
+<script>
+/* DOMPurify (Apache-2.0 / MPL-2.0, https://github.com/cure53/DOMPurify) */
+/*! @license DOMPurify 3.4.14 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.4.14/LICENSE */
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):(t="undefined"!=typeof globalThis?globalThis:t||self).DOMPurify=e()}(this,function(){"use strict";function t(t,e){(null==e||e>t.length)&&(e=t.length);for(var n=0,o=Array(e);n<e;n++)o[n]=t[n];return o}function e(e,n){return function(t){if(Array.isArray(t))return t}(e)||function(t,e){var n=null==t?null:"undefined"!=typeof Symbol&&t[Symbol.iterator]||t["@@iterator"];if(null!=n){var o,r,i,a,l=[],c=!0,s=!1;try{if(i=(n=n.call(t)).next,0===e);else for(;!(c=(o=i.call(n)).done)&&(l.push(o.value),l.length!==e);c=!0);}catch(t){s=!0,r=t}finally{try{if(!c&&null!=n.return&&(a=n.return(),Object(a)!==a))return}finally{if(s)throw r}}return l}}(e,n)||function(e,n){if(e){if("string"==typeof e)return t(e,n);var o={}.toString.call(e).slice(8,-1);return"Object"===o&&e.constructor&&(o=e.constructor.name),"Map"===o||"Set"===o?Array.from(e):"Arguments"===o||/^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(o)?t(e,n):void 0}}(e,n)||function(){throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.")}()}const n=Object.entries,o=Object.setPrototypeOf,r=Object.isFrozen,i=Object.getPrototypeOf,a=Object.getOwnPropertyDescriptor;let l=Object.freeze,c=Object.seal,s=Object.create,u="undefined"!=typeof Reflect&&Reflect,f=u.apply,p=u.construct;l||(l=function(t){return t}),c||(c=function(t){return t}),f||(f=function(t,e){for(var n=arguments.length,o=new Array(n>2?n-2:0),r=2;r<n;r++)o[r-2]=arguments[r];return t.apply(e,o)}),p||(p=function(t){for(var e=arguments.length,n=new Array(e>1?e-1:0),o=1;o<e;o++)n[o-1]=arguments[o];return new t(...n)});const m=L(Array.prototype.forEach),d=L(Array.prototype.lastIndexOf),h=L(Array.prototype.pop),y=L(Array.prototype.push),g=L(Array.prototype.splice),b=Array.isArray,S=L(String.prototype.toLowerCase),T=L(String.prototype.toString),A=L(String.prototype.match),E=L(String.prototype.replace),w=L(String.prototype.indexOf),v=L(String.prototype.trim),O=L(Number.prototype.toString),x=L(Boolean.prototype.toString),N="undefined"==typeof BigInt?null:L(BigInt.prototype.toString),_="undefined"==typeof Symbol?null:L(Symbol.prototype.toString),D=L(Object.prototype.hasOwnProperty),R=L(Object.prototype.toString),k=L(RegExp.prototype.test),C=(I=TypeError,function(){for(var t=arguments.length,e=new Array(t),n=0;n<t;n++)e[n]=arguments[n];return p(I,e)});var I;function L(t){return function(e){e instanceof RegExp&&(e.lastIndex=0);for(var n=arguments.length,o=new Array(n>1?n-1:0),r=1;r<n;r++)o[r-1]=arguments[r];return f(t,e,o)}}function z(t,e){let n=arguments.length>2&&void 0!==arguments[2]?arguments[2]:S;if(o&&o(t,null),!b(e))return t;let i=e.length;for(;i--;){let o=e[i];if("string"==typeof o){const t=n(o);t!==o&&(r(e)||(e[i]=t),o=t)}t[o]=!0}return t}function M(t){for(let e=0;e<t.length;e++){D(t,e)||(t[e]=null)}return t}function P(t){const o=s(null);for(const i of n(t)){var r=e(i,2);const n=r[0],a=r[1];D(t,n)&&(b(a)?o[n]=M(a):a&&"object"==typeof a&&a.constructor===Object?o[n]=P(a):o[n]=a)}return o}function U(t,e){for(;null!==t;){const n=a(t,e);if(n){if(n.get)return L(n.get);if("function"==typeof n.value)return L(n.value)}t=i(t)}return function(){return null}}const F=l(["a","abbr","acronym","address","area","article","aside","audio","b","bdi","bdo","big","blink","blockquote","body","br","button","canvas","caption","center","cite","code","col","colgroup","content","data","datalist","dd","decorator","del","details","dfn","dialog","dir","div","dl","dt","element","em","fieldset","figcaption","figure","font","footer","form","h1","h2","h3","h4","h5","h6","head","header","hgroup","hr","html","i","img","input","ins","kbd","label","legend","li","main","map","mark","marquee","menu","menuitem","meter","nav","nobr","ol","optgroup","option","output","p","picture","pre","progress","q","rp","rt","ruby","s","samp","search","section","select","shadow","slot","small","source","spacer","span","strike","strong","style","sub","summary","sup","table","tbody","td","template","textarea","tfoot","th","thead","time","tr","track","tt","u","ul","var","video","wbr"]),H=l(["svg","a","altglyph","altglyphdef","altglyphitem","animatecolor","animatemotion","animatetransform","circle","clippath","defs","desc","ellipse","enterkeyhint","exportparts","filter","font","g","glyph","glyphref","hkern","image","inputmode","line","lineargradient","marker","mask","metadata","mpath","part","path","pattern","polygon","polyline","radialgradient","rect","stop","style","switch","symbol","text","textpath","title","tref","tspan","view","vkern"]),j=l(["feBlend","feColorMatrix","feComponentTransfer","feComposite","feConvolveMatrix","feDiffuseLighting","feDisplacementMap","feDistantLight","feDropShadow","feFlood","feFuncA","feFuncB","feFuncG","feFuncR","feGaussianBlur","feImage","feMerge","feMergeNode","feMorphology","feOffset","fePointLight","feSpecularLighting","feSpotLight","feTile","feTurbulence"]),B=l(["animate","color-profile","cursor","discard","font-face","font-face-format","font-face-name","font-face-src","font-face-uri","foreignobject","hatch","hatchpath","mesh","meshgradient","meshpatch","meshrow","missing-glyph","script","set","solidcolor","unknown","use"]),W=l(["math","menclose","merror","mfenced","mfrac","mglyph","mi","mlabeledtr","mmultiscripts","mn","mo","mover","mpadded","mphantom","mroot","mrow","ms","mspace","msqrt","mstyle","msub","msup","msubsup","mtable","mtd","mtext","mtr","munder","munderover","mprescripts"]),Y=l(["maction","maligngroup","malignmark","mlongdiv","mscarries","mscarry","msgroup","mstack","msline","msrow","semantics","annotation","annotation-xml","mprescripts","none"]),G=l(["#text"]),q=l(["accept","action","align","alt","autocapitalize","autocomplete","autopictureinpicture","autoplay","background","bgcolor","border","capture","cellpadding","cellspacing","checked","cite","class","clear","color","cols","colspan","command","commandfor","controls","controlslist","coords","crossorigin","datetime","decoding","default","dir","disabled","disablepictureinpicture","disableremoteplayback","download","draggable","enctype","enterkeyhint","exportparts","face","for","headers","height","hidden","high","href","hreflang","id","inert","inputmode","integrity","ismap","kind","label","lang","list","loading","loop","low","max","maxlength","media","method","min","minlength","multiple","muted","name","nonce","noshade","novalidate","nowrap","open","optimum","part","pattern","placeholder","playsinline","popover","popovertarget","popovertargetaction","poster","preload","pubdate","radiogroup","readonly","rel","required","rev","reversed","role","rows","rowspan","spellcheck","scope","selected","shape","size","sizes","slot","span","srclang","start","src","srcset","step","style","summary","tabindex","title","translate","type","usemap","valign","value","width","wrap","xmlns"]),$=l(["accent-height","accumulate","additive","alignment-baseline","amplitude","ascent","attributename","attributetype","azimuth","basefrequency","baseline-shift","begin","bias","by","class","clip","clippathunits","clip-path","clip-rule","color","color-interpolation","color-interpolation-filters","color-profile","color-rendering","cx","cy","d","dx","dy","diffuseconstant","direction","display","divisor","dominant-baseline","dur","edgemode","elevation","end","exponent","fill","fill-opacity","fill-rule","filter","filterunits","flood-color","flood-opacity","font-family","font-size","font-size-adjust","font-stretch","font-style","font-variant","font-weight","fx","fy","g1","g2","glyph-name","glyphref","gradientunits","gradienttransform","height","href","id","image-rendering","in","in2","intercept","k","k1","k2","k3","k4","kerning","keypoints","keysplines","keytimes","lang","lengthadjust","letter-spacing","kernelmatrix","kernelunitlength","lighting-color","local","marker-end","marker-mid","marker-start","markerheight","markerunits","markerwidth","maskcontentunits","maskunits","max","mask","mask-type","media","method","mode","min","name","numoctaves","offset","operator","opacity","order","orient","orientation","origin","overflow","paint-order","path","pathlength","patterncontentunits","patterntransform","patternunits","pointer-events","points","preservealpha","preserveaspectratio","primitiveunits","r","rx","ry","radius","refx","refy","repeatcount","repeatdur","restart","result","rotate","scale","seed","shape-rendering","slope","specularconstant","specularexponent","spreadmethod","startoffset","stddeviation","stitchtiles","stop-color","stop-opacity","stroke-dasharray","stroke-dashoffset","stroke-linecap","stroke-linejoin","stroke-miterlimit","stroke-opacity","stroke","stroke-width","style","surfacescale","systemlanguage","tabindex","tablevalues","targetx","targety","transform","transform-origin","text-anchor","text-decoration","text-orientation","text-rendering","textlength","type","u1","u2","unicode","values","vector-effect","viewbox","visibility","version","vert-adv-y","vert-origin-x","vert-origin-y","width","word-spacing","wrap","writing-mode","xchannelselector","ychannelselector","x","x1","x2","xmlns","y","y1","y2","z","zoomandpan"]),X=l(["accent","accentunder","align","bevelled","close","columnalign","columnlines","columnspacing","columnspan","denomalign","depth","dir","display","displaystyle","encoding","fence","frame","height","href","id","largeop","length","linethickness","lquote","lspace","mathbackground","mathcolor","mathsize","mathvariant","maxsize","minsize","movablelimits","notation","numalign","open","rowalign","rowlines","rowspacing","rowspan","rspace","rquote","scriptlevel","scriptminsize","scriptsizemultiplier","selection","separator","separators","stretchy","subscriptshift","supscriptshift","symmetric","voffset","width","xmlns"]),K=l(["xlink:href","xml:id","xlink:title","xml:space","xmlns:xlink"]),V=c(/{{[\w\W]*|^[\w\W]*}}/g),Z=c(/<%[\w\W]*|^[\w\W]*%>/g),J=c(/\${[\w\W]*/g),Q=c(/^data-[\-\w.\u00B7-\uFFFF]+$/),tt=c(/^aria-[\-\w]+$/),et=c(/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i),nt=c(/^(?:\w+script|data):/i),ot=c(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g),rt=c(/^html$/i),it=c(/^[a-z][.\w]*(-[.\w]+)+$/i),at=c(/<[/\w!]/g),lt=c(/<[/\w]/g),ct=c(/<\/no(script|embed|frames)/i),st=c(/\/>/i),ut=1,ft=3,pt=7,mt=8,dt=9,ht=11,yt=["style","script","xmp","iframe","noembed","noframes","plaintext","noscript"],gt=l(z({},yt)),bt=function(){const t={};return m(yt,e=>{t[e]=c(new RegExp("</"+e+"(?=[\\t\\n\\f\\r />])","i"))}),l(t)}(),St=function(){return"undefined"==typeof window?null:window},Tt=function(t,e,n,o){return D(t,e)&&b(t[e])?z(o.base?P(o.base):{},t[e],o.transform):n},At=function(t,e,n){const o=D(t,e)?t[e]:void 0;return o&&"object"==typeof o?P(o):n()};var Et=function t(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:St();const o=e=>t(e);if(o.version="3.4.14",o.removed=[],!e||!e.document||e.document.nodeType!==dt||!e.Element)return o.isSupported=!1,o;let r=e.document;const i=r,a=i.currentScript;e.DocumentFragment;const u=e.HTMLTemplateElement,f=e.Node,p=e.Element,I=e.NodeFilter,L=e.NamedNodeMap;void 0===L&&(e.NamedNodeMap||e.MozNamedAttrMap),e.HTMLFormElement;const M=e.DOMParser,yt=e.trustedTypes,Et=p.prototype,wt=U(Et,"cloneNode"),vt=U(Et,"remove"),Ot=U(Et,"nextSibling"),xt=U(Et,"childNodes"),Nt=U(Et,"parentNode"),_t=U(Et,"shadowRoot"),Dt=U(Et,"attributes"),Rt=f&&f.prototype?U(f.prototype,"nodeType"):null,kt=f&&f.prototype?U(f.prototype,"nodeName"):null,Ct=f&&f.prototype?U(f.prototype,"ownerDocument"):null,It=function(t){return Rt?Rt(t):t.nodeType},Lt=function(t){return kt?kt(t):t.nodeName};if("function"==typeof u){const t=r.createElement("template");t.content&&t.content.ownerDocument&&(r=t.content.ownerDocument)}let zt,Mt,Pt="",Ut=!1,Ft=0;const Ht=function(){if(Ft>0)throw C('A configured TRUSTED_TYPES_POLICY callback (createHTML or createScriptURL) must not call DOMPurify.sanitize, as that causes infinite recursion. Do not pass a policy whose callbacks wrap DOMPurify as TRUSTED_TYPES_POLICY; see the "DOMPurify and Trusted Types" section of the README.')},jt=function(t){Ht(),Ft++;try{return zt.createHTML(t)}finally{Ft--}},Bt=function(){return Ut||(Mt=function(t,e){if("object"!=typeof t||"function"!=typeof t.createPolicy)return null;let n=null;const o="data-tt-policy-suffix";e&&e.hasAttribute(o)&&(n=e.getAttribute(o));const r="dompurify"+(n?"#"+n:"");try{return t.createPolicy(r,{createHTML:t=>t,createScriptURL:t=>t})}catch(t){return console.warn("TrustedTypes policy "+r+" could not be created."),null}}(yt,a),Ut=!0),Mt},Wt=r,Yt=Wt.implementation,Gt=Wt.createNodeIterator,qt=Wt.createDocumentFragment,$t=Wt.getElementsByTagName,Xt=i.importNode;let Kt={afterSanitizeAttributes:[],afterSanitizeElements:[],afterSanitizeShadowDOM:[],beforeSanitizeAttributes:[],beforeSanitizeElements:[],beforeSanitizeShadowDOM:[],uponSanitizeAttribute:[],uponSanitizeElement:[],uponSanitizeShadowNode:[]};o.isSupported="function"==typeof n&&"function"==typeof Nt&&Yt&&void 0!==Yt.createHTMLDocument;const Vt=V,Zt=Z,Jt=J,Qt=Q,te=tt,ee=nt,ne=ot,oe=it;let re=et,ie=null;const ae=z({},[...F,...H,...j,...W,...G]);let le=null;const ce=z({},[...q,...$,...X,...K]);let se=Object.seal(s(null,{tagNameCheck:{writable:!0,configurable:!1,enumerable:!0,value:null},attributeNameCheck:{writable:!0,configurable:!1,enumerable:!0,value:null},allowCustomizedBuiltInElements:{writable:!0,configurable:!1,enumerable:!0,value:!1}})),ue=null,fe=null;const pe=Object.seal(s(null,{tagCheck:{writable:!0,configurable:!1,enumerable:!0,value:null},attributeCheck:{writable:!0,configurable:!1,enumerable:!0,value:null}}));let me=!0,de=!0,he=!1,ye=!0,ge=!1,be=!0,Se=!1,Te=!1,Ae=null,Ee=null,we=!1,ve=!1,Oe=!1,xe=!1,Ne=!0,_e=!1;const De="user-content-";let Re=!0,ke=!1,Ce={},Ie=null;const Le=z({},["annotation-xml","audio","colgroup","desc","foreignobject","head","iframe","math","mi","mn","mo","ms","mtext","noembed","noframes","noscript","plaintext","script","selectedcontent","style","svg","template","thead","title","video","xmp"]);let ze=null;const Me=z({},["audio","video","img","source","image","track"]);let Pe=null;const Ue=z({},["alt","class","for","id","label","name","pattern","placeholder","role","summary","title","value","style","xmlns"]),Fe="http://www.w3.org/1998/Math/MathML",He="http://www.w3.org/2000/svg",je="http://www.w3.org/1999/xhtml";let Be=je,We=!1,Ye=null;const Ge=z({},[Fe,He,je],T),qe=l(["mi","mo","mn","ms","mtext"]);let $e=z({},qe);const Xe=l(["annotation-xml"]);let Ke=z({},Xe);const Ve=z({},["title","style","font","a","script"]);let Ze=null;const Je=["application/xhtml+xml","text/html"];let Qe=null,tn=null;const en=r.createElement("form"),nn=function(t){return t instanceof RegExp||t instanceof Function},on=function(){let t=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};if(tn&&tn===t)return;t&&"object"==typeof t||(t={}),t=P(t),Ze=-1===Je.indexOf(t.PARSER_MEDIA_TYPE)?"text/html":t.PARSER_MEDIA_TYPE,Qe="application/xhtml+xml"===Ze?T:S,ie=Tt(t,"ALLOWED_TAGS",ae,{transform:Qe}),le=Tt(t,"ALLOWED_ATTR",ce,{transform:Qe}),Ye=Tt(t,"ALLOWED_NAMESPACES",Ge,{transform:T}),Pe=Tt(t,"ADD_URI_SAFE_ATTR",Ue,{transform:Qe,base:Ue}),ze=Tt(t,"ADD_DATA_URI_TAGS",Me,{transform:Qe,base:Me}),Ie=Tt(t,"FORBID_CONTENTS",Le,{transform:Qe}),ue=Tt(t,"FORBID_TAGS",P({}),{transform:Qe}),fe=Tt(t,"FORBID_ATTR",P({}),{transform:Qe}),Ce=!!D(t,"USE_PROFILES")&&(t.USE_PROFILES&&"object"==typeof t.USE_PROFILES?P(t.USE_PROFILES):t.USE_PROFILES),me=!1!==t.ALLOW_ARIA_ATTR,de=!1!==t.ALLOW_DATA_ATTR,he=t.ALLOW_UNKNOWN_PROTOCOLS||!1,ye=!1!==t.ALLOW_SELF_CLOSE_IN_ATTR,ge=t.SAFE_FOR_TEMPLATES||!1,be=!1!==t.SAFE_FOR_XML,Se=t.WHOLE_DOCUMENT||!1,ve=t.RETURN_DOM||!1,Oe=t.RETURN_DOM_FRAGMENT||!1,xe=t.RETURN_TRUSTED_TYPE||!1,we=t.FORCE_BODY||!1,Ne=!1!==t.SANITIZE_DOM,_e=t.SANITIZE_NAMED_PROPS||!1,Re=!1!==t.KEEP_CONTENT,ke=t.IN_PLACE||!1,re=function(t){try{return k(t,""),!0}catch(t){return!1}}(t.ALLOWED_URI_REGEXP)?t.ALLOWED_URI_REGEXP:et,Be="string"==typeof t.NAMESPACE?t.NAMESPACE:je,$e=At(t,"MATHML_TEXT_INTEGRATION_POINTS",()=>z({},qe)),Ke=At(t,"HTML_INTEGRATION_POINTS",()=>z({},Xe));const e=At(t,"CUSTOM_ELEMENT_HANDLING",()=>s(null));if(se=s(null),D(e,"tagNameCheck")&&nn(e.tagNameCheck)&&(se.tagNameCheck=e.tagNameCheck),D(e,"attributeNameCheck")&&nn(e.attributeNameCheck)&&(se.attributeNameCheck=e.attributeNameCheck),D(e,"allowCustomizedBuiltInElements")&&"boolean"==typeof e.allowCustomizedBuiltInElements&&(se.allowCustomizedBuiltInElements=e.allowCustomizedBuiltInElements),c(se),ge&&(de=!1),Oe&&(ve=!0),Ce&&(ie=z({},G),le=s(null),!0===Ce.html&&(z(ie,F),z(le,q)),!0===Ce.svg&&(z(ie,H),z(le,$),z(le,K)),!0===Ce.svgFilters&&(z(ie,j),z(le,$),z(le,K)),!0===Ce.mathMl&&(z(ie,W),z(le,X),z(le,K))),pe.tagCheck=null,pe.attributeCheck=null,D(t,"ADD_TAGS")&&("function"==typeof t.ADD_TAGS?pe.tagCheck=t.ADD_TAGS:b(t.ADD_TAGS)&&(ie===ae&&(ie=P(ie)),z(ie,t.ADD_TAGS,Qe))),D(t,"ADD_ATTR")&&("function"==typeof t.ADD_ATTR?pe.attributeCheck=t.ADD_ATTR:b(t.ADD_ATTR)&&(le===ce&&(le=P(le)),z(le,t.ADD_ATTR,Qe))),D(t,"ADD_FORBID_CONTENTS")&&b(t.ADD_FORBID_CONTENTS)&&(Ie===Le&&(Ie=P(Ie)),z(Ie,t.ADD_FORBID_CONTENTS,Qe)),Re&&(ie["#text"]=!0),Se&&z(ie,["html","head","body"]),ie.table&&(z(ie,["tbody"]),delete ue.tbody),t.TRUSTED_TYPES_POLICY){if("function"!=typeof t.TRUSTED_TYPES_POLICY.createHTML)throw C('TRUSTED_TYPES_POLICY configuration option must provide a "createHTML" hook.');if("function"!=typeof t.TRUSTED_TYPES_POLICY.createScriptURL)throw C('TRUSTED_TYPES_POLICY configuration option must provide a "createScriptURL" hook.');const e=zt;zt=t.TRUSTED_TYPES_POLICY;try{Pt=jt("")}catch(t){throw zt=e,t}}else null===t.TRUSTED_TYPES_POLICY?(zt=void 0,Pt=""):(void 0===zt&&(zt=Bt()),zt&&"string"==typeof Pt&&(Pt=jt("")));l&&l(t),tn=t},rn=z({},[...H,...j,...B]),an=z({},[...W,...Y]),ln=function(t){let e=Nt(t);e&&e.tagName||(e={namespaceURI:Be,tagName:"template"});const n=S(t.tagName),o=S(e.tagName);return!!Ye[t.namespaceURI]&&(t.namespaceURI===He?function(t,e,n){return e.namespaceURI===je?"svg"===t:e.namespaceURI===Fe?"svg"===t&&("annotation-xml"===n||$e[n]):Boolean(rn[t])}(n,e,o):t.namespaceURI===Fe?function(t,e,n){return e.namespaceURI===je?"math"===t:e.namespaceURI===He?"math"===t&&Ke[n]:Boolean(an[t])}(n,e,o):t.namespaceURI===je?function(t,e,n){return!(e.namespaceURI===He&&!Ke[n])&&!(e.namespaceURI===Fe&&!$e[n])&&!an[t]&&(Ve[t]||!rn[t])}(n,e,o):!("application/xhtml+xml"!==Ze||!Ye[t.namespaceURI]))},cn=function(t){y(o.removed,{element:t});try{Nt(t).removeChild(t)}catch(e){if(vt(t),!Nt(t))throw C("a node selected for removal could not be detached from its tree and cannot be safely returned; refusing to sanitize in place")}},sn=function(t,e,n){try{t.removeAttributeNode(e)}catch(e){try{t.removeAttribute(n)}catch(t){}}},un=function(t){mn(t);const e=xt(t);if(e){const t=[];m(e,e=>{y(t,e)}),m(t,t=>{try{vt(t)}catch(t){}})}const n=Dt(t);if(n)for(let e=n.length-1;e>=0;--e){const o=n[e],r=o&&o.name;"string"==typeof r&&sn(t,o,r)}},fn=function(t,e,n){if(!n)try{n=e.getAttributeNode(t)}catch(t){n=null}y(o.removed,{attribute:n||null,from:e});try{n?e.removeAttributeNode(n):e.removeAttribute(t)}catch(n){try{e.removeAttribute(t)}catch(t){}}if("is"===t)if(ve||Oe)try{cn(e)}catch(t){}else try{e.setAttribute(t,"")}catch(t){}},pn=function(t){const e=Dt(t);if(e)for(let n=e.length-1;n>=0;--n){const o=e[n],r=o&&o.name;"string"!=typeof r||le[Qe(r)]||sn(t,o,r)}},mn=function(t){const e=[t];for(;e.length>0;){const t=e.pop();It(t)===ut&&pn(t);const n=xt(t);if(n)for(let t=n.length-1;t>=0;--t)e.push(n[t])}},dn=function(t,e){return!!be&&("patchsrc"===t||"for"===t&&"label"!==e&&"output"!==e)},hn=function(t){let e=null,n=null;if(we)t="<remove></remove>"+t;else{const e=A(t,/^[\r\n\t ]+/);n=e&&e[0]}"application/xhtml+xml"===Ze&&Be===je&&(t='<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body>'+t+"</body></html>");const o=zt?jt(t):t;if(Be===je)try{e=(new M).parseFromString(o,Ze)}catch(t){}if(!e||!e.documentElement){e=Yt.createDocument(Be,"template",null);try{e.documentElement.innerHTML=We?Pt:o}catch(t){}}const i=e.body||e.documentElement;return t&&n&&i.insertBefore(r.createTextNode(n),i.childNodes[0]||null),Be===je?$t.call(e,Se?"html":"body")[0]:Se?e.documentElement:i},yn=function(t){const e=Ct?Ct(t):t.ownerDocument;return Gt.call(e||t,t,I.SHOW_ELEMENT|I.SHOW_COMMENT|I.SHOW_TEXT|I.SHOW_PROCESSING_INSTRUCTION|I.SHOW_CDATA_SECTION,null)},gn=function(t){return t=E(t,Vt," "),t=E(t,Zt," "),t=E(t,Jt," ")},bn=function(t){var e;t.normalize();const n=Ct?Ct(t):t.ownerDocument,o=Gt.call(n||t,t,I.SHOW_TEXT|I.SHOW_COMMENT|I.SHOW_CDATA_SECTION|I.SHOW_PROCESSING_INSTRUCTION,null);let r=o.nextNode();for(;r;)r.data=gn(r.data),r=o.nextNode();const i=null===(e=t.querySelectorAll)||void 0===e?void 0:e.call(t,"template");i&&m(i,t=>{Tn(t.content)&&bn(t.content)})},Sn=function(t){const e=kt?kt(t):null;return"string"==typeof e&&("form"===Qe(e)&&("string"!=typeof t.nodeName||"string"!=typeof t.textContent||"function"!=typeof t.removeChild||t.attributes!==Dt(t)||"function"!=typeof t.removeAttribute||"function"!=typeof t.setAttribute||"string"!=typeof t.namespaceURI||"function"!=typeof t.insertBefore||"function"!=typeof t.hasChildNodes||t.nodeType!==Rt(t)||t.childNodes!==xt(t)))},Tn=function(t){if(!Rt||"object"!=typeof t||null===t)return!1;try{return Rt(t)===ht}catch(t){return!1}},An=function(t){if(!Rt||"object"!=typeof t||null===t)return!1;try{return"number"==typeof Rt(t)}catch(t){return!1}};function En(t,e,n){0!==t.length&&m(t,t=>{t.call(o,e,n,tn)})}const wn=function(t,e){if(t instanceof RegExp)return k(t,e);if(t instanceof Function){for(var n=arguments.length,o=new Array(n>2?n-2:0),r=2;r<n;r++)o[r-2]=arguments[r];return Boolean(t(e,...o))}return!1},vn=function(t,e,n,o){return 0===t.length?e:e===n||e===o?P(e):e},On=function(t,e){return t!==e&&null===Nt(t)&&(ke&&mn(t),!0)},xn=function(t,e){if(En(Kt.beforeSanitizeElements,t,null),On(t,e))return!0;if(Sn(t))return cn(t),!0;const n=Qe(Lt(t));if(ie=vn(Kt.uponSanitizeElement,ie,ae,Ae),En(Kt.uponSanitizeElement,t,{tagName:n,allowedTags:ie}),On(t,e))return!0;if(function(t,e){return!!(be&&t.hasChildNodes()&&!An(t.firstElementChild)&&k(at,t.textContent)&&k(at,t.innerHTML))||!!(be&&t.namespaceURI===je&&gt[e]&&(An(t.firstElementChild)||"string"==typeof t.textContent&&k(bt[e],t.textContent)))||t.nodeType===pt||!(!be||t.nodeType!==mt||!k(lt,t.data))}(t,n))return cn(t),!0;if(ue[n]||!(pe.tagCheck instanceof Function&&pe.tagCheck(n))&&!ie[n]){const o=function(t,e,n){if(!ue[e]&&Dn(e)&&wn(se.tagNameCheck,e))return!1;if(Re&&!Ie[e]){const e=Nt(t),o=xt(t);if(o&&e)for(let r=o.length-1;r>=0;--r){const i=t===n?wt(o[r],!0):o[r];e.insertBefore(i,Ot(t))}}return cn(t),!0}(t,n,e);return!1===o&&En(Kt.afterSanitizeElements,t,null),o}if(It(t)===ut&&!ln(t))return cn(t),!0;if(("noscript"===n||"noembed"===n||"noframes"===n)&&k(ct,t.innerHTML))return cn(t),!0;if(ge&&t.nodeType===ft){const e=gn(t.textContent);t.textContent!==e&&(y(o.removed,{element:t.cloneNode()}),t.textContent=e)}return En(Kt.afterSanitizeElements,t,null),!1},Nn=function(t,e,n){if(fe[e])return!1;if(dn(e,t))return!1;if(Ne&&("id"===e||"name"===e)&&(n in r||n in en))return!1;const o=le[e]||pe.attributeCheck instanceof Function&&pe.attributeCheck(e,t);return!(!de||!k(Qt,e))||(!(!me||!k(te,e))||(o?!!Pe[e]||(!!k(re,E(n,ne,""))||(!("src"!==e&&"xlink:href"!==e&&"href"!==e||"script"===t||0!==w(n,"data:")||!ze[t])||(!(!he||k(ee,E(n,ne,"")))||!n))):Dn(t)&&wn(se.tagNameCheck,t)&&wn(se.attributeNameCheck,e,t)||"is"===e&&se.allowCustomizedBuiltInElements&&wn(se.tagNameCheck,n)))},_n=z({},["annotation-xml","color-profile","font-face","font-face-format","font-face-name","font-face-src","font-face-uri","missing-glyph"]),Dn=function(t){return!_n[S(t)]&&k(oe,t)},Rn=function(t,e,n,o){if(zt&&"object"==typeof yt&&"function"==typeof yt.getAttributeType&&!n)switch(yt.getAttributeType(t,e)){case"TrustedHTML":return jt(o);case"TrustedScriptURL":return function(t){Ht(),Ft++;try{return zt.createScriptURL(t)}finally{Ft--}}(o)}return o},kn=function(t,e,n,r){try{n?t.setAttributeNS(n,e,r):t.setAttribute(e,r),Sn(t)?cn(t):h(o.removed)}catch(n){fn(e,t)}},Cn=function(t){En(Kt.beforeSanitizeAttributes,t,null);const e=t.attributes;if(!e||Sn(t))return;le=vn(Kt.uponSanitizeAttribute,le,ce,Ee);const n={attrName:"",attrValue:"",keepAttr:!0,allowedAttributes:le,forceKeepAttr:void 0};let o=e.length;const r=Qe(t.nodeName);for(;o--;){const i=e[o],a=i.name,l=i.namespaceURI,c=i.value,s=Qe(a),u=c;let f="value"===a?u:v(u);n.attrName=s,n.attrValue=f,n.keepAttr=!0,n.forceKeepAttr=void 0,En(Kt.uponSanitizeAttribute,t,n),f=n.attrValue,!_e||"id"!==s&&"name"!==s||0===w(f,De)||(fn(a,t,i),f=De+f),be&&k(/((--!?|])>)|<\/(style|script|title|xmp|textarea|noscript|iframe|noembed|noframes)/i,f)?fn(a,t,i):"attributename"===s&&A(f,"href")?fn(a,t,i):n.forceKeepAttr||(n.keepAttr&&(ye||!k(st,f))?(ge&&(f=gn(f)),Nn(r,s,f)?(f=Rn(r,s,l,f),f!==u&&kn(t,a,l,f)):fn(a,t,i)):fn(a,t,i))}En(Kt.afterSanitizeAttributes,t,null)},In=function(t){let e=null;const n=yn(t);for(En(Kt.beforeSanitizeShadowDOM,t,null);e=n.nextNode();)if(En(Kt.uponSanitizeShadowNode,e,null),xn(e,t),Cn(e),Tn(e.content)&&In(e.content),It(e)===ut){const t=_t(e);Tn(t)&&(Ln(t),In(t))}En(Kt.afterSanitizeShadowDOM,t,null)},Ln=function(t){const e=[{node:t,shadow:null}];for(;e.length>0;){const t=e.pop();if(t.shadow){In(t.shadow);continue}const n=t.node,o=It(n)===ut,r=xt(n);if(r)for(let t=r.length-1;t>=0;--t)e.push({node:r[t],shadow:null});if(o){const t=kt?kt(n):null;if("string"==typeof t&&"template"===Qe(t)){const t=n.content;Tn(t)&&e.push({node:t,shadow:null})}}if(o){const t=_t(n);Tn(t)&&e.push({node:null,shadow:t},{node:t,shadow:null})}}};return o.sanitize=function(t){let e=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{},n=null,r=null,a=null,l=null;if(We=!t,We&&(t="\x3c!--\x3e"),"string"!=typeof t&&!An(t)&&"string"!=typeof(t=function(t){switch(typeof t){case"string":return t;case"number":return O(t);case"boolean":return x(t);case"bigint":return N?N(t):"0";case"symbol":return _?_(t):"Symbol()";case"undefined":default:return R(t);case"function":case"object":{if(null===t)return R(t);const e=t,n=U(e,"toString");if("function"==typeof n){const t=n(e);return"string"==typeof t?t:R(t)}return R(t)}}}(t)))throw C("dirty is not a string, aborting");if(!o.isSupported)return t;Te?(ie=Ae,le=Ee):on(e),(Kt.uponSanitizeElement.length>0||Kt.uponSanitizeAttribute.length>0)&&(ie=P(ie)),Kt.uponSanitizeAttribute.length>0&&(le=P(le)),o.removed=[];const c=ke&&"string"!=typeof t&&An(t);if(c){!function(t){if(!be)return;const e=[t];for(;e.length>0;){const t=e.pop(),n=It(t);if(n===pt||n===mt&&k(lt,t.data)){try{vt(t)}catch(t){}continue}if(n===ut){const e=t,n=Qe(Lt(t));try{e.hasAttribute&&e.hasAttribute("patchsrc")&&e.removeAttribute("patchsrc"),e.hasAttribute&&e.hasAttribute("for")&&dn("for",n)&&e.removeAttribute("for")}catch(t){}}const o=xt(t);if(o)for(let t=o.length-1;t>=0;--t)e.push(o[t])}}(t);const e=Lt(t);if("string"==typeof e){const n=Qe(e);if(!ie[n]||ue[n])throw un(t),C("root node is forbidden and cannot be sanitized in-place")}if(Sn(t))throw un(t),C("root node is clobbered and cannot be sanitized in-place");try{Ln(t)}catch(e){throw un(t),e}}else if(An(t))n=hn("\x3c!----\x3e"),r=n.ownerDocument.importNode(t,!0),r.nodeType===ut&&"BODY"===r.nodeName||"HTML"===r.nodeName?n=r:n.appendChild(r),Ln(r);else{if(!ve&&!ge&&!Se&&-1===t.indexOf("<"))return zt&&xe?jt(t):t;if(n=hn(t),!n)return ve?null:xe?Pt:""}n&&we&&cn(n.firstChild);const s=c?t:n;try{const t=yn(s);for(;a=t.nextNode();)xn(a,s),Cn(a),Tn(a.content)&&In(a.content)}catch(e){throw c&&(un(t),m(o.removed,t=>{t.element&&mn(t.element)})),e}if(c)return m(o.removed,t=>{t.element&&mn(t.element)}),ge&&bn(t),t;if(ve){if(ge&&bn(n),Oe)for(l=qt.call(n.ownerDocument);n.firstChild;)l.appendChild(n.firstChild);else l=n;return(le.shadowroot||le.shadowrootmode)&&(l=Xt.call(i,l,!0)),l}let u=Se?n.outerHTML:n.innerHTML;return Se&&ie["!doctype"]&&n.ownerDocument&&n.ownerDocument.doctype&&n.ownerDocument.doctype.name&&k(rt,n.ownerDocument.doctype.name)&&(u="<!DOCTYPE "+n.ownerDocument.doctype.name+">\n"+u),ge&&(u=gn(u)),zt&&xe?jt(u):u},o.setConfig=function(){on(arguments.length>0&&void 0!==arguments[0]?arguments[0]:{}),Te=!0,Ae=ie,Ee=le},o.clearConfig=function(){tn=null,Te=!1,Ae=null,Ee=null,zt=Mt,Pt=""},o.isValidAttribute=function(t,e,n){tn||on({});const o=Qe(t),r=Qe(e);return Nn(o,r,n)},o.addHook=function(t,e){"function"==typeof e&&D(Kt,t)&&y(Kt[t],e)},o.removeHook=function(t,e){if(D(Kt,t)){if(void 0!==e){const n=d(Kt[t],e);return-1===n?void 0:g(Kt[t],n,1)[0]}return h(Kt[t])}},o.removeHooks=function(t){D(Kt,t)&&(Kt[t]=[])},o.removeAllHooks=function(){Kt={afterSanitizeAttributes:[],afterSanitizeElements:[],afterSanitizeShadowDOM:[],beforeSanitizeAttributes:[],beforeSanitizeElements:[],beforeSanitizeShadowDOM:[],uponSanitizeAttribute:[],uponSanitizeElement:[],uponSanitizeShadowNode:[]}},o}();return Et});
+
+</script>
+
+<!-- ============================================================
+     애플리케이션 코드
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     0. 상수
+     ============================================================ */
+  var DEFAULT_FILENAME = '제목 없음.md';
+  var INDENT = '  '; // Tab 입력 시 삽입할 들여쓰기(공백 2칸)
+  var RENDER_DEBOUNCE_MS = 120; // Editor 입력 → Viewer 재렌더링 디바운스
+  var RESIZE_DEBOUNCE_MS = 100; // 창 크기 변경 디바운스
+  var STATUS_MESSAGE_TIMEOUT_MS = 4200; // 하단 상태 메시지 자동 소멸 시간
+  var TOAST_TIMEOUT_MS = 3000;
+  var MIN_SPLIT_RATIO = 0.15;
+  var MAX_SPLIT_RATIO = 0.85;
+  var KEYBOARD_RESIZE_STEP = 0.02;
+  var NARROW_BREAKPOINT_QUERY = '(max-width: 768px)';
+
+  /* ============================================================
+     1. 유틸리티 함수
+     ============================================================ */
+  function debounce(fn, wait) {
+    var timerId = null;
+    function debounced() {
+      var args = arguments;
+      clearTimeout(timerId);
+      timerId = setTimeout(function () {
+        fn.apply(null, args);
+      }, wait);
+    }
+    debounced.cancel = function () { clearTimeout(timerId); };
+    return debounced;
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' Bytes';
+    var units = ['KB', 'MB', 'GB'];
+    var value = bytes / 1024;
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    var decimals = value >= 10 ? 0 : 1;
+    return value.toFixed(decimals) + ' ' + units[unitIndex];
+  }
+
+  function getUtf8ByteLength(str) {
+    return new TextEncoder().encode(str).length;
+  }
+
+  function countCharacters(str) {
+    // 서로게이트 페어(이모지 등)를 한 글자로 정확히 세기 위해 Array.from 사용
+    return Array.from(str).length;
+  }
+
+  function hasMdExtension(filename) {
+    return /\.(md|markdown)$/i.test(filename || '');
+  }
+
+  function isMac() {
+    var platform = (navigator.userAgentData && navigator.userAgentData.platform) ||
+      navigator.platform || navigator.userAgent || '';
+    return /Mac|iPhone|iPad|iPod/i.test(platform);
+  }
+
+  function shortcutHint(letter) {
+    return isMac() ? '\u2318' + letter : 'Ctrl+' + letter;
+  }
+
+  function safeMatchMedia(query) {
+    // 매우 오래되었거나 특수한 브라우저 환경에서 matchMedia 자체가 없을 수 있으므로
+    // 항상 안전하게 동작하는 폴백 객체를 반환한다(테마/반응형 레이아웃 감지가 이 함수에 의존).
+    if (window.matchMedia) {
+      try {
+        return window.matchMedia(query);
+      } catch (err) {
+        console.error('[safeMatchMedia] matchMedia 호출 오류:', err);
+      }
+    }
+    return { matches: false, addEventListener: function () {}, addListener: function () {} };
+  }
+
+  /* ============================================================
+     2. 애플리케이션 상태 (단일 객체로 관리)
+     ============================================================ */
+  var state = {
+    content: '',                  // Editor의 현재 Markdown 원문
+    fileName: DEFAULT_FILENAME,   // 화면에 표시되는 파일명
+    fileHandle: null,             // FileSystemFileHandle | null
+    isDirty: false,                // 마지막 저장 이후 변경 여부
+    showWelcomeGuide: true,        // 최초 진입(어떤 문서도 열거나 만들지 않은) 안내 화면 표시 여부
+    theme: 'light',                // 'light' | 'dark'
+    splitRatio: 0.5,                // Viewer 영역이 차지하는 비율 (0.15~0.85)
+    isNarrowLayout: false,          // 반응형: 상하 배치(좁은 화면) 여부
+  };
+
+  /* ============================================================
+     3. DOM 참조 캐시
+     ============================================================ */
+  var dom = {};
+  function cacheDom() {
+    dom.btnNew = document.getElementById('btn-new');
+    dom.btnOpen = document.getElementById('btn-open');
+    dom.btnSave = document.getElementById('btn-save');
+    dom.btnSaveAs = document.getElementById('btn-save-as');
+    dom.btnThemeToggle = document.getElementById('btn-theme-toggle');
+    dom.iconSun = document.getElementById('icon-theme-sun');
+    dom.iconMoon = document.getElementById('icon-theme-moon');
+
+    dom.filenameText = document.getElementById('filename-text');
+    dom.saveStatus = document.getElementById('save-status');
+    dom.saveStatusLabel = document.getElementById('save-status-label');
+
+    dom.splitContainer = document.getElementById('split-container');
+    dom.viewerPane = document.getElementById('viewer-pane');
+    dom.viewerScroll = document.getElementById('viewer-scroll');
+    dom.viewerContent = document.getElementById('viewer-content');
+    dom.divider = document.getElementById('divider');
+    dom.editorPane = document.getElementById('editor-pane');
+    dom.editor = document.getElementById('editor');
+
+    dom.statusMessage = document.getElementById('status-message');
+    dom.docInfo = document.getElementById('doc-info');
+
+    dom.modalOverlay = document.getElementById('modal-overlay');
+    dom.modal = document.getElementById('modal');
+    dom.modalTitle = document.getElementById('modal-title');
+    dom.modalDesc = document.getElementById('modal-desc');
+    dom.modalInputWrap = document.getElementById('modal-input-wrap');
+    dom.modalInput = document.getElementById('modal-input');
+    dom.modalInputLabel = document.getElementById('modal-input-label');
+    dom.modalCancel = document.getElementById('modal-cancel');
+    dom.modalConfirm = document.getElementById('modal-confirm');
+
+    dom.toastRegion = document.getElementById('toast-region');
+    dom.fileInput = document.getElementById('file-input');
+  }
+
+  /* ============================================================
+     4. Markdown 렌더링 모듈
+     - marked.js로 HTML 변환 → DOMPurify로 살균(XSS 방지) 후 반환
+     ============================================================ */
+  var MarkdownRenderer = {
+    ready: false,
+
+    init: function () {
+      if (typeof marked === 'undefined') {
+        console.error('[MarkdownRenderer] marked 라이브러리를 찾을 수 없습니다.');
+        this.ready = false;
+        return;
+      }
+      marked.setOptions({
+        gfm: true,     // 표, 취소선 등 GitHub Flavored Markdown 지원
+        breaks: false, // 표준 Markdown 규칙(빈 줄로 문단 구분)을 따름
+      });
+      this.ready = true;
+    },
+
+    render: function (markdownText) {
+      if (!this.ready) {
+        return '<p style="color:var(--danger)">Markdown 라이브러리를 불러오지 못해 미리보기를 표시할 수 없습니다. 페이지를 새로고침해 주세요.</p>';
+      }
+
+      var rawHtml;
+      try {
+        rawHtml = marked.parse(markdownText || '');
+      } catch (err) {
+        console.error('[MarkdownRenderer] Markdown 파싱 오류:', err);
+        return '<p style="color:var(--danger)">이 문서의 일부 Markdown 문법을 해석하는 중 오류가 발생했습니다. 문법을 확인해 주세요.</p>';
+      }
+
+      if (typeof DOMPurify === 'undefined') {
+        // 살균 라이브러리를 사용할 수 없는 경우, 원본 HTML을 그대로 삽입하지 않고
+        // 텍스트로만 안전하게 표시하여 XSS 위험을 방지한다.
+        console.error('[MarkdownRenderer] DOMPurify 라이브러리를 찾을 수 없어 안전 모드로 표시합니다.');
+        var safeDiv = document.createElement('div');
+        safeDiv.textContent = markdownText;
+        return '<pre style="white-space:pre-wrap;font-family:inherit;">' + safeDiv.innerHTML + '</pre>';
+      }
+
+      try {
+        return DOMPurify.sanitize(rawHtml);
+      } catch (err) {
+        console.error('[MarkdownRenderer] 살균(sanitize) 처리 중 오류:', err);
+        return '<p style="color:var(--danger)">문서를 안전하게 표시하는 중 오류가 발생했습니다.</p>';
+      }
+    },
+  };
+
+  /* ============================================================
+     5. UI 모듈
+     - Viewer 렌더링, 상태 표시, 테마, 분할 크기 조절, 모달, 토스트
+     ============================================================ */
+  var UI = {
+    statusMessageTimer: null,
+    narrowMediaQuery: null,
+    modalActiveResolve: null,
+    modalLastFocusedElement: null,
+
+    /* ---------- Viewer 렌더링 ---------- */
+    renderViewer: function () {
+      if (state.content.length === 0) {
+        dom.viewerContent.innerHTML = '';
+        if (state.showWelcomeGuide) {
+          dom.viewerContent.appendChild(UI.buildWelcomeGuide());
+        }
+        return;
+      }
+      dom.viewerContent.innerHTML = MarkdownRenderer.render(state.content);
+      UI.hardenExternalLinks();
+    },
+
+    buildWelcomeGuide: function () {
+      var wrap = document.createElement('div');
+      wrap.className = 'viewer-empty-guide';
+      wrap.innerHTML =
+        '<div class="viewer-empty-guide-inner">' +
+        '<svg class="viewer-empty-guide-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 3.5h8l4 4V19a1.2 1.2 0 0 1-1.2 1.2H6.5A1.2 1.2 0 0 1 5.3 19V4.7A1.2 1.2 0 0 1 6.5 3.5Z"/><path d="M14.5 3.5V7.5a.5.5 0 0 0 .5.5h4"/><path d="M8.3 12.2h7.4M8.3 15.2h7.4M8.3 9.2h4"/></svg>' +
+        '<h2>Markdown 문서를 열어보세요</h2>' +
+        '<p>왼쪽에는 서식이 적용된 미리보기가, 오른쪽에는 원본 텍스트 편집기가 표시됩니다. 편집 내용은 별도 저장 없이 실시간으로 반영됩니다.</p>' +
+        '<div class="viewer-empty-guide-shortcuts">' +
+        '<div><kbd>' + shortcutHint('O') + '</kbd><span>파일 열기</span></div>' +
+        '<div><kbd>' + shortcutHint('S') + '</kbd><span>저장</span></div>' +
+        '<div><kbd>' + shortcutHint('N') + '</kbd><span>새 문서</span></div>' +
+        '</div></div>';
+      return wrap;
+    },
+
+    hardenExternalLinks: function () {
+      // 렌더링된 문서의 링크는 새 탭에서 열어 편집 중인 세션을 보존하고,
+      // rel 속성으로 탭 하이재킹(reverse tabnabbing)을 방지한다.
+      var anchors = dom.viewerContent.querySelectorAll('a[href]');
+      for (var i = 0; i < anchors.length; i++) {
+        anchors[i].setAttribute('target', '_blank');
+        anchors[i].setAttribute('rel', 'noopener noreferrer');
+      }
+    },
+
+    /* ---------- 상태 표시 ---------- */
+    setStatusMessage: function (text, type) {
+      dom.statusMessage.textContent = text || '';
+      dom.statusMessage.dataset.type = type || 'info';
+      clearTimeout(UI.statusMessageTimer);
+      if (text) {
+        UI.statusMessageTimer = setTimeout(function () {
+          dom.statusMessage.textContent = '';
+        }, STATUS_MESSAGE_TIMEOUT_MS);
+      }
+    },
+
+    showToast: function (text, type) {
+      var toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.dataset.type = type || 'default';
+      toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+      toast.textContent = text;
+      dom.toastRegion.appendChild(toast);
+      requestAnimationFrame(function () {
+        toast.classList.add('is-visible');
+      });
+      setTimeout(function () {
+        toast.classList.remove('is-visible');
+        setTimeout(function () { toast.remove(); }, 220);
+      }, TOAST_TIMEOUT_MS);
+    },
+
+    updateFilenameDisplay: function () {
+      dom.filenameText.textContent = state.fileName;
+      dom.filenameText.title = state.fileName;
+      document.title = (state.isDirty ? '\u2022 ' : '') + state.fileName + ' — 마크다운 에디터';
+    },
+
+    updateSaveStatus: function () {
+      var s = state.isDirty ? 'dirty' : 'saved';
+      dom.saveStatus.dataset.state = s;
+      dom.saveStatusLabel.textContent = state.isDirty ? '수정됨' : '저장됨';
+    },
+
+    updateDocInfo: function () {
+      var charCount = countCharacters(state.content);
+      var byteSize = getUtf8ByteLength(state.content);
+      dom.docInfo.textContent = charCount.toLocaleString('ko-KR') + '자 · ' + formatBytes(byteSize);
+    },
+
+    markDirty: function (isDirty) {
+      state.isDirty = isDirty;
+      UI.updateSaveStatus();
+      UI.updateFilenameDisplay();
+    },
+
+    /* ---------- 테마(다크/라이트 모드) ---------- */
+    initTheme: function () {
+      var prefersDark = safeMatchMedia('(prefers-color-scheme: dark)').matches;
+      UI.setTheme(prefersDark ? 'dark' : 'light');
+    },
+
+    setTheme: function (theme) {
+      state.theme = theme;
+      document.documentElement.setAttribute('data-theme', theme);
+      dom.btnThemeToggle.setAttribute('aria-label', theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환');
+      dom.iconSun.classList.toggle('hidden', theme === 'dark');
+      dom.iconMoon.classList.toggle('hidden', theme !== 'dark');
+    },
+
+    toggleTheme: function () {
+      UI.setTheme(state.theme === 'dark' ? 'light' : 'dark');
+    },
+
+    /* ---------- 반응형 레이아웃 ---------- */
+    initResponsive: function () {
+      UI.narrowMediaQuery = safeMatchMedia(NARROW_BREAKPOINT_QUERY);
+      UI.applyLayoutMode(UI.narrowMediaQuery.matches);
+      var handler = function (e) { UI.applyLayoutMode(e.matches); };
+      if (UI.narrowMediaQuery.addEventListener) {
+        UI.narrowMediaQuery.addEventListener('change', handler);
+      } else if (UI.narrowMediaQuery.addListener) {
+        UI.narrowMediaQuery.addListener(handler); // 구형 Safari 호환
+      }
+    },
+
+    applyLayoutMode: function (isNarrow) {
+      state.isNarrowLayout = isNarrow;
+      dom.splitContainer.classList.toggle('is-stacked', isNarrow);
+      dom.divider.setAttribute('aria-orientation', isNarrow ? 'horizontal' : 'vertical');
+      dom.divider.setAttribute('aria-label', isNarrow
+        ? '미리보기와 편집기 크기 조절 (위/아래 방향키)'
+        : '미리보기와 편집기 크기 조절 (좌/우 방향키)');
+      UI.applySplitRatio();
+    },
+
+    /* ---------- 분할 영역 크기 조절 ---------- */
+    applySplitRatio: function () {
+      var viewerPercent = Math.round(state.splitRatio * 1000) / 10;
+      var editorPercent = Math.round((1 - state.splitRatio) * 1000) / 10;
+      dom.viewerPane.style.flex = '0 0 ' + viewerPercent + '%';
+      dom.editorPane.style.flex = '0 0 ' + editorPercent + '%';
+      dom.divider.setAttribute('aria-valuenow', String(Math.round(viewerPercent)));
+    },
+
+    setSplitRatio: function (ratio) {
+      state.splitRatio = Math.min(MAX_SPLIT_RATIO, Math.max(MIN_SPLIT_RATIO, ratio));
+      UI.applySplitRatio();
+    },
+
+    initDividerDrag: function () {
+      var dragging = false;
+
+      function ratioFromPointer(clientX, clientY) {
+        var rect = dom.splitContainer.getBoundingClientRect();
+        if (state.isNarrowLayout) {
+          return (clientY - rect.top) / rect.height;
+        }
+        return (clientX - rect.left) / rect.width;
+      }
+
+      function onPointerDown(e) {
+        dragging = true;
+        dom.divider.classList.add('is-dragging');
+        if (dom.divider.setPointerCapture) {
+          try { dom.divider.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+        }
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = state.isNarrowLayout ? 'row-resize' : 'col-resize';
+      }
+
+      function onPointerMove(e) {
+        if (!dragging) return;
+        UI.setSplitRatio(ratioFromPointer(e.clientX, e.clientY));
+      }
+
+      function endDrag(e) {
+        if (!dragging) return;
+        dragging = false;
+        dom.divider.classList.remove('is-dragging');
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        if (e && dom.divider.releasePointerCapture && e.pointerId !== undefined) {
+          try { dom.divider.releasePointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
+        }
+      }
+
+      dom.divider.addEventListener('pointerdown', onPointerDown);
+      dom.divider.addEventListener('pointermove', onPointerMove);
+      dom.divider.addEventListener('pointerup', endDrag);
+      dom.divider.addEventListener('pointercancel', endDrag);
+      dom.divider.addEventListener('dblclick', function () { UI.setSplitRatio(0.5); });
+
+      dom.divider.addEventListener('keydown', function (e) {
+        var horizontalKeys = ['ArrowLeft', 'ArrowRight'];
+        var verticalKeys = ['ArrowUp', 'ArrowDown'];
+        var relevantKeys = state.isNarrowLayout ? verticalKeys : horizontalKeys;
+        var isStep = relevantKeys.indexOf(e.key) !== -1;
+        var isEdge = e.key === 'Home' || e.key === 'End';
+        if (!isStep && !isEdge) return;
+        e.preventDefault();
+        if (e.key === 'Home') { UI.setSplitRatio(MIN_SPLIT_RATIO); return; }
+        if (e.key === 'End') { UI.setSplitRatio(MAX_SPLIT_RATIO); return; }
+        var increasing = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+        UI.setSplitRatio(state.splitRatio + (increasing ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP));
+      });
+    },
+
+    /* ---------- 모달(확인창 / 파일명 입력창 공용) ---------- */
+    openModal: function (options) {
+      return new Promise(function (resolve) {
+        UI.modalActiveResolve = resolve;
+        UI.modalLastFocusedElement = document.activeElement;
+
+        dom.modalTitle.textContent = options.title;
+        dom.modalDesc.textContent = options.desc;
+        dom.modalConfirm.textContent = options.confirmLabel || '확인';
+        dom.modalCancel.textContent = options.cancelLabel || '취소';
+
+        if (options.showInput) {
+          dom.modalInputWrap.classList.remove('hidden');
+          dom.modalInputLabel.textContent = options.inputLabel || '';
+          dom.modalInput.value = options.inputValue || '';
+        } else {
+          dom.modalInputWrap.classList.add('hidden');
+        }
+
+        dom.modalOverlay.classList.remove('hidden');
+        requestAnimationFrame(function () { dom.modalOverlay.classList.add('is-open'); });
+
+        setTimeout(function () {
+          var focusTarget = options.showInput ? dom.modalInput : dom.modalConfirm;
+          focusTarget.focus();
+          if (options.showInput) dom.modalInput.select();
+        }, 50);
+      });
+    },
+
+    closeModal: function (result) {
+      dom.modalOverlay.classList.remove('is-open');
+      setTimeout(function () { dom.modalOverlay.classList.add('hidden'); }, 180);
+      if (UI.modalLastFocusedElement && UI.modalLastFocusedElement.focus) {
+        UI.modalLastFocusedElement.focus();
+      }
+      if (UI.modalActiveResolve) {
+        var resolve = UI.modalActiveResolve;
+        UI.modalActiveResolve = null;
+        resolve(result);
+      }
+    },
+
+    confirmDialog: function (title, desc, confirmLabel) {
+      return UI.openModal({
+        title: title, desc: desc, confirmLabel: confirmLabel || '계속 진행', cancelLabel: '취소', showInput: false,
+      }).then(function (result) { return result === true; });
+    },
+
+    promptForFilename: function (currentName) {
+      var baseName = (currentName || '').replace(/\.(md|markdown)$/i, '') || '제목 없음';
+      return UI.openModal({
+        title: '다른 이름으로 저장',
+        desc: '저장할 파일 이름을 입력해 주세요. 확장자(.md)는 자동으로 붙습니다.',
+        confirmLabel: '저장',
+        cancelLabel: '취소',
+        showInput: true,
+        inputLabel: '파일 이름',
+        inputValue: baseName,
+      }).then(function (result) {
+        if (result !== true) return null;
+        var typed = dom.modalInput.value.trim();
+        return typed || baseName;
+      });
+    },
+
+    initModalHandlers: function () {
+      dom.modalConfirm.addEventListener('click', function () { UI.closeModal(true); });
+      dom.modalCancel.addEventListener('click', function () { UI.closeModal(false); });
+      dom.modalOverlay.addEventListener('click', function (e) {
+        if (e.target === dom.modalOverlay) UI.closeModal(false);
+      });
+      dom.modalInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); UI.closeModal(true); }
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && dom.modalOverlay.classList.contains('is-open')) {
+          UI.closeModal(false);
+        }
+      });
+      // 모달 내부 Tab 포커스 순환(포커스 트랩)
+      dom.modal.addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab') return;
+        var focusables = Array.prototype.slice
+          .call(dom.modal.querySelectorAll('button, input, [tabindex]:not([tabindex="-1"])'))
+          .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+        if (focusables.length === 0) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      });
+    },
+  };
+
+  /* ============================================================
+     6. 파일 처리 모듈
+     - File System Access API 우선 사용, 미지원 브라우저는 다운로드 방식으로 대체
+     ============================================================ */
+  var FileManager = {
+    supportsFSA: ('showOpenFilePicker' in window) && ('showSaveFilePicker' in window),
+
+    pickerTypes: [
+      { description: 'Markdown 파일', accept: { 'text/markdown': ['.md', '.markdown'] } },
+    ],
+
+    /* 파일 열기: FSA API 지원 시 결과를 즉시 반환(Promise),
+       미지원 시 폴백 input을 클릭만 하고 undefined를 반환 →
+       실제 처리는 change 이벤트 핸들러(handleFileInputChange)가 이어받는다. */
+    openFile: function () {
+      if (this.supportsFSA) {
+        return window.showOpenFilePicker({ types: this.pickerTypes }).then(function (handles) {
+          var handle = handles[0];
+          return handle.getFile().then(function (file) {
+            return file.text().then(function (text) {
+              return { text: text, name: file.name, handle: handle };
+            });
+          });
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') return null; // 사용자가 선택 취소
+          console.error('[FileManager] 파일 열기 오류:', err);
+          UI.setStatusMessage('파일을 여는 중 문제가 발생했습니다.', 'error');
+          return null;
+        });
+      }
+      dom.fileInput.value = '';
+      dom.fileInput.click();
+      return Promise.resolve(undefined);
+    },
+
+    readFileFromInput: function (file) {
+      return file.text().then(function (text) {
+        return { text: text, name: file.name, handle: null };
+      }).catch(function (err) {
+        console.error('[FileManager] 파일 읽기 오류:', err);
+        UI.setStatusMessage('파일을 읽을 수 없습니다. 기존 문서 내용은 유지됩니다.', 'error');
+        return null;
+      });
+    },
+
+    ensureWritePermission: function (handle) {
+      if (!handle.queryPermission) return Promise.resolve(true); // 구형 구현 보수적 허용
+      return handle.queryPermission({ mode: 'readwrite' }).then(function (permission) {
+        if (permission === 'granted') return true;
+        return handle.requestPermission({ mode: 'readwrite' }).then(function (p) {
+          return p === 'granted';
+        });
+      });
+    },
+
+    writeToHandle: function (handle, text) {
+      return this.ensureWritePermission(handle).then(function (granted) {
+        if (!granted) {
+          var permErr = new Error('PERMISSION_DENIED');
+          throw permErr;
+        }
+        return handle.createWritable().then(function (writable) {
+          return writable.write(text).then(function () {
+            return writable.close();
+          }, function (writeErr) {
+            // 쓰기 실패 시에도 스트림을 정리한다.
+            return writable.close().finally(function () { throw writeErr; });
+          });
+        });
+      });
+    },
+
+    downloadAsFile: function (text, filename) {
+      var blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    },
+
+    save: function () {
+      var self = this;
+      if (state.fileHandle && this.supportsFSA) {
+        return this.writeToHandle(state.fileHandle, state.content).then(function () {
+          return { ok: true, mode: 'handle' };
+        }).catch(function (err) {
+          console.error('[FileManager] 저장 오류:', err);
+          if (err && err.message === 'PERMISSION_DENIED') {
+            UI.setStatusMessage('파일 저장 권한이 거부되었습니다. "다른 이름으로 저장"을 이용해 주세요.', 'error');
+          } else {
+            UI.setStatusMessage('파일을 저장하지 못했습니다. 편집 중인 내용은 유지됩니다.', 'error');
+          }
+          return { ok: false };
+        });
+      }
+      try {
+        self.downloadAsFile(state.content, state.fileName);
+        return Promise.resolve({ ok: true, mode: 'download' });
+      } catch (err) {
+        console.error('[FileManager] 다운로드 오류:', err);
+        UI.setStatusMessage('파일 다운로드에 실패했습니다. 편집 중인 내용은 유지됩니다.', 'error');
+        return Promise.resolve({ ok: false });
+      }
+    },
+
+    saveAs: function () {
+      var self = this;
+      if (this.supportsFSA) {
+        return window.showSaveFilePicker({ suggestedName: state.fileName, types: this.pickerTypes })
+          .then(function (handle) {
+            return self.writeToHandle(handle, state.content).then(function () {
+              return { ok: true, mode: 'handle', handle: handle, name: handle.name };
+            });
+          }).catch(function (err) {
+            if (err && err.name === 'AbortError') return { ok: false, cancelled: true };
+            console.error('[FileManager] 다른 이름으로 저장 오류:', err);
+            UI.setStatusMessage('파일을 저장하지 못했습니다. 편집 중인 내용은 유지됩니다.', 'error');
+            return { ok: false };
+          });
+      }
+      return UI.promptForFilename(state.fileName).then(function (chosenName) {
+        if (chosenName === null) return { ok: false, cancelled: true };
+        var finalName = hasMdExtension(chosenName) ? chosenName : chosenName + '.md';
+        try {
+          self.downloadAsFile(state.content, finalName);
+          return { ok: true, mode: 'download', name: finalName };
+        } catch (err) {
+          console.error('[FileManager] 다운로드 오류:', err);
+          UI.setStatusMessage('파일 다운로드에 실패했습니다. 편집 중인 내용은 유지됩니다.', 'error');
+          return { ok: false };
+        }
+      });
+    },
+  };
+
+  /* ============================================================
+     7. 문서 동작 (열기 / 저장 / 다른 이름으로 저장 / 새 문서)
+     ============================================================ */
+  var DocumentActions = {
+    loadIntoEditor: function (text, name, handle) {
+      state.content = text;
+      state.fileName = name;
+      state.fileHandle = handle;
+      state.showWelcomeGuide = false;
+
+      dom.editor.value = text;
+      dom.editor.scrollTop = 0;
+      dom.editor.setSelectionRange(0, 0);
+
+      UI.markDirty(false);
+      UI.updateFilenameDisplay();
+      UI.updateDocInfo();
+      UI.renderViewer();
+      dom.viewerScroll.scrollTop = 0;
+      dom.editor.focus();
+    },
+
+    confirmDiscardIfDirty: function (actionLabel) {
+      if (!state.isDirty) return Promise.resolve(true);
+      return UI.confirmDialog(
+        '저장하지 않은 변경사항이 있습니다',
+        actionLabel + ' 현재 변경사항이 사라집니다. 계속하시겠습니까?',
+        '계속 진행'
+      );
+    },
+
+    handleOpen: function () {
+      return FileManager.openFile().then(function (result) {
+        if (result === undefined) return; // 폴백 경로: change 이벤트에서 이어서 처리
+        if (result === null) return; // 취소 또는 오류
+        return DocumentActions.finishOpen(result);
+      });
+    },
+
+    finishOpen: function (result) {
+      return DocumentActions.confirmDiscardIfDirty('선택한 파일을 열면').then(function (proceed) {
+        if (!proceed) return;
+        if (!hasMdExtension(result.name)) {
+          UI.setStatusMessage('"' + result.name + '"은(는) Markdown(.md) 파일이 아닙니다. 텍스트로 열었습니다.', 'info');
+        } else {
+          UI.setStatusMessage('"' + result.name + '" 파일을 열었습니다.', 'success');
+        }
+        DocumentActions.loadIntoEditor(result.text, result.name, result.handle);
+      });
+    },
+
+    handleFileInputChange: function (fileList) {
+      var file = fileList && fileList[0];
+      if (!file) return Promise.resolve();
+      return FileManager.readFileFromInput(file).then(function (result) {
+        if (!result) return;
+        return DocumentActions.finishOpen(result);
+      });
+    },
+
+    handleSave: function () {
+      return FileManager.save().then(function (outcome) {
+        if (!outcome.ok) return;
+        UI.markDirty(false);
+        UI.setStatusMessage(
+          outcome.mode === 'handle' ? '파일에 저장했습니다.' : ('"' + state.fileName + '" 파일을 다운로드했습니다.'),
+          'success'
+        );
+      });
+    },
+
+    handleSaveAs: function () {
+      return FileManager.saveAs().then(function (outcome) {
+        if (!outcome.ok) return;
+        if (outcome.name) state.fileName = outcome.name;
+        if (outcome.handle) state.fileHandle = outcome.handle;
+        UI.markDirty(false);
+        UI.updateFilenameDisplay();
+        UI.setStatusMessage(
+          outcome.mode === 'handle' ? ('"' + state.fileName + '"(으)로 저장했습니다.') : ('"' + state.fileName + '" 파일을 다운로드했습니다.'),
+          'success'
+        );
+      });
+    },
+
+    handleNewDocument: function () {
+      return DocumentActions.confirmDiscardIfDirty('새 문서를 만들면').then(function (proceed) {
+        if (!proceed) return;
+        state.content = '';
+        state.fileName = DEFAULT_FILENAME;
+        state.fileHandle = null;
+        state.showWelcomeGuide = false; // 사용자가 명시적으로 새 문서를 선택했으므로 안내 문구 대신 빈 화면 표시
+
+        dom.editor.value = '';
+        UI.markDirty(false);
+        UI.updateFilenameDisplay();
+        UI.updateDocInfo();
+        UI.renderViewer();
+        dom.editor.focus();
+        UI.setStatusMessage('새 문서를 만들었습니다.', 'info');
+      });
+    },
+  };
+
+  /* ============================================================
+     8. Editor 입력 처리 (실시간 미리보기 + Tab 들여쓰기)
+     ============================================================ */
+  var debouncedRenderViewer = debounce(function () { UI.renderViewer(); }, RENDER_DEBOUNCE_MS);
+
+  function handleEditorInput() {
+    state.content = dom.editor.value;
+    if (state.showWelcomeGuide) state.showWelcomeGuide = false;
+    if (!state.isDirty) UI.markDirty(true);
+    UI.updateDocInfo();
+    debouncedRenderViewer();
+  }
+
+  function handleEditorKeydown(e) {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+
+    var ta = dom.editor;
+    var selectionStart = ta.selectionStart;
+    var selectionEnd = ta.selectionEnd;
+    var value = ta.value;
+
+    // 커서만 있고(선택 영역 없음) Tab인 경우: 커서 위치에 들여쓰기 삽입
+    if (!e.shiftKey && selectionStart === selectionEnd) {
+      ta.value = value.slice(0, selectionStart) + INDENT + value.slice(selectionEnd);
+      ta.selectionStart = ta.selectionEnd = selectionStart + INDENT.length;
+      handleEditorInput();
+      return;
+    }
+
+    // 여러 줄 선택 또는 Shift+Tab: 줄 단위 들여쓰기/내어쓰기
+    var effectiveEnd = selectionEnd;
+    if (selectionEnd > selectionStart && value.charAt(effectiveEnd - 1) === '\n') {
+      effectiveEnd -= 1; // 선택이 줄바꿈 직후에서 끝나면 다음 빈 줄까지 포함되지 않도록 보정
+    }
+    var lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    var nextNewline = value.indexOf('\n', effectiveEnd);
+    var lineEnd = nextNewline === -1 ? value.length : nextNewline;
+
+    var before = value.slice(0, lineStart);
+    var block = value.slice(lineStart, lineEnd);
+    var after = value.slice(lineEnd);
+    var lines = block.split('\n');
+
+    var startDelta = 0;
+    var totalDelta = 0;
+
+    var newLines = lines.map(function (line, idx) {
+      if (e.shiftKey) {
+        var trimCount = 0;
+        if (line.indexOf(INDENT) === 0) {
+          trimCount = INDENT.length;
+        } else if (line.charAt(0) === '\t') {
+          trimCount = 1;
+        } else {
+          var leadingSpaces = (line.match(/^ */) || [''])[0].length;
+          trimCount = Math.min(leadingSpaces, INDENT.length);
+        }
+        if (idx === 0) startDelta = -trimCount;
+        totalDelta -= trimCount;
+        return line.slice(trimCount);
+      }
+      if (idx === 0) startDelta = INDENT.length;
+      totalDelta += INDENT.length;
+      return INDENT + line;
+    });
+
+    ta.value = before + newLines.join('\n') + after;
+    ta.selectionStart = Math.max(lineStart, selectionStart + startDelta);
+    ta.selectionEnd = Math.max(ta.selectionStart, selectionEnd + totalDelta);
+    handleEditorInput();
+  }
+
+  /* ============================================================
+     9. 전역 키보드 단축키 (Ctrl/Cmd + S, O, N)
+     ============================================================ */
+  function handleGlobalKeydown(e) {
+    var mod = e.ctrlKey || e.metaKey;
+    if (!mod) return;
+    var key = e.key.toLowerCase();
+    // 참고: Ctrl/Cmd+N은 일부 브라우저에서 "새 창 열기"로 예약되어 있어
+    // preventDefault가 무시될 수 있다(브라우저 자체 제약, JS로 해결 불가).
+    if (key === 's') {
+      e.preventDefault();
+      DocumentActions.handleSave();
+    } else if (key === 'o') {
+      e.preventDefault();
+      DocumentActions.handleOpen();
+    } else if (key === 'n') {
+      e.preventDefault();
+      DocumentActions.handleNewDocument();
+    }
+  }
+
+  /* ============================================================
+     10. 이벤트 바인딩 및 초기화
+     ============================================================ */
+  function bindEvents() {
+    dom.btnNew.addEventListener('click', DocumentActions.handleNewDocument);
+    dom.btnOpen.addEventListener('click', DocumentActions.handleOpen);
+    dom.btnSave.addEventListener('click', DocumentActions.handleSave);
+    dom.btnSaveAs.addEventListener('click', DocumentActions.handleSaveAs);
+    dom.btnThemeToggle.addEventListener('click', UI.toggleTheme);
+
+    dom.editor.addEventListener('input', handleEditorInput);
+    dom.editor.addEventListener('keydown', handleEditorKeydown);
+
+    dom.fileInput.addEventListener('change', function (e) {
+      DocumentActions.handleFileInputChange(e.target.files);
+    });
+
+    document.addEventListener('keydown', handleGlobalKeydown);
+
+    window.addEventListener('resize', debounce(function () { UI.applySplitRatio(); }, RESIZE_DEBOUNCE_MS));
+
+    window.addEventListener('beforeunload', function (e) {
+      if (!state.isDirty) return undefined;
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    });
+  }
+
+  function showFatalInitError(err) {
+    // 초기화 자체가 실패하면 화면이 아무 반응 없이 멈춘 것처럼 보일 수 있으므로,
+    // 최소한의 안내 문구를 화면 전체에 표시해 사용자가 새로고침을 시도할 수 있도록 한다.
+    console.error('[마크다운 에디터] 초기화 중 예상하지 못한 오류가 발생했습니다:', err);
+    var banner = document.createElement('div');
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
+      'background:#1c1c1f;color:#fff;font-family:-apple-system,"Segoe UI","맑은 고딕",sans-serif;' +
+      'text-align:center;padding:24px;z-index:9999;';
+    banner.innerHTML = '<div style="max-width:420px;font-size:14.5px;line-height:1.7;">' +
+      '앱을 초기화하는 중 문제가 발생했습니다.<br>페이지를 새로고침해 주세요.</div>';
+    document.body.appendChild(banner);
+  }
+
+  function init() {
+    try {
+      cacheDom();
+      MarkdownRenderer.init();
+      UI.initTheme();
+      UI.initResponsive();
+      UI.initDividerDrag();
+      UI.initModalHandlers();
+      bindEvents();
+
+      UI.updateFilenameDisplay();
+      UI.updateSaveStatus();
+      UI.updateDocInfo();
+      UI.renderViewer();
+
+      if (!FileManager.supportsFSA) {
+        console.info('[마크다운 에디터] 이 브라우저는 File System Access API를 지원하지 않습니다. "저장"은 다운로드 방식으로 대체됩니다.');
+      }
+    } catch (err) {
+      showFatalInitError(err);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+
+</script>
+</body>
+</html>
