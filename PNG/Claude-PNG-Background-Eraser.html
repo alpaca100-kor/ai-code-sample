@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PNG 배경 지우개</title>
+<style>
+/* ==========================================================================
+   PNG 배경 지우개 - 스타일시트
+   구성
+     0. 디자인 토큰 (커스텀 속성)
+     1. 리셋 및 기본 스타일
+     2. 전체 레이아웃
+     3. 툴바 / 버튼 / 입력 요소
+     4. 캔버스(이미지 편집) 영역
+     5. 상태 표시줄
+     6. 모달 / 오류 배너 / 처리중 오버레이
+     7. 반응형 대응
+   ========================================================================== */
+
+/* -------------------------- 0. 디자인 토큰 -------------------------- */
+:root {
+  --bg-app: #1e1e1e;
+  --bg-panel: #272727;
+  --bg-panel-alt: #2d2d2d;
+  --bg-canvas-area: #181818;
+  --bg-control: rgba(255, 255, 255, 0.06);
+  --bg-control-hover: rgba(255, 255, 255, 0.11);
+  --bg-control-active: rgba(255, 255, 255, 0.04);
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-primary: #f1f1f1;
+  --text-secondary: #a3a3a3;
+  --text-muted: #757575;
+  --accent: #60cdff;
+  --accent-hover: #7fd6ff;
+  --accent-ink: #0b1c24;
+  --danger: #ff7a7a;
+  --danger-bg: #3a1f1f;
+  --warning: #ffb454;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --font-ui: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+}
+
+/* -------------------------- 1. 리셋 및 기본 -------------------------- */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input {
+  font-family: inherit;
+  color: inherit;
+}
+
+/* 각 컴포넌트가 자체적으로 display:flex/grid 등을 지정하고 있으므로,
+   author 스타일이 UA 스타일시트의 [hidden]{display:none}보다 우선 적용되어
+   버리는 문제를 막기 위해 hidden 속성을 항상 최우선으로 강제한다.
+   (이 규칙이 없으면 모달/오버레이가 hidden 상태에서도 화면을 덮어
+   클릭을 가로채는 심각한 버그가 발생한다.) */
+[hidden] {
+  display: none !important;
+}
+
+h1, p {
+  margin: 0;
+}
+
+svg {
+  display: block;
+}
+
+/* -------------------------- 2. 전체 레이아웃 -------------------------- */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* -------------------------- 3. 툴바 -------------------------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.app-title-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-right: 2px;
+}
+
+.app-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.app-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+}
+
+/* 버튼 공통 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 12.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-control-hover);
+  border-color: var(--border-strong);
+}
+
+.btn:active:not(:disabled) {
+  background: var(--bg-control-active);
+}
+
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.icon-btn {
+  width: 30px;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 감도 슬라이더 그룹 */
+.tolerance-group {
+  gap: 9px;
+}
+
+.tolerance-group label {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+#toleranceSlider {
+  width: 116px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+#toleranceSlider:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.value-badge {
+  min-width: 28px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-sm);
+  padding: 3px 6px;
+  color: var(--text-primary);
+}
+
+/* 체크박스 */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.checkbox-label:has(input:disabled) {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* 확대/축소 그룹 */
+.zoom-group {
+  gap: 4px;
+}
+
+.zoom-badge {
+  min-width: 44px;
+}
+
+/* -------------------------- 4. 캔버스 영역 -------------------------- */
+.canvas-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: var(--bg-canvas-area);
+  overflow: hidden;
+}
+
+.canvas-viewport {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.canvas-area.drag-over::after {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-lg);
+  background: rgba(96, 205, 255, 0.06);
+  pointer-events: none;
+  z-index: 5;
+}
+
+#mainCanvas {
+  display: block;
+  cursor: crosshair;
+  /* 체크무늬는 CSS 배경으로만 표시되며 실제 픽셀 데이터(이미지)에는
+     저장되지 않는다. 투명(Alpha=0) 픽셀 아래로 이 배경이 비쳐 보인다. */
+  background-image:
+    linear-gradient(45deg, #cfcfcf 25%, transparent 25%),
+    linear-gradient(-45deg, #cfcfcf 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #cfcfcf 75%),
+    linear-gradient(-45deg, transparent 75%, #cfcfcf 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 6px 28px rgba(0, 0, 0, 0.4);
+}
+
+/* 확대(100% 초과) 시 픽셀 경계를 또렷하게 표시 */
+#mainCanvas.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* 빈 상태 안내 */
+.empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-secondary);
+}
+
+.empty-state-icon {
+  width: 60px;
+  height: 60px;
+  color: var(--text-muted);
+}
+
+.empty-state p {
+  font-size: 14.5px;
+  color: var(--text-primary);
+}
+
+.empty-state .empty-hint {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* -------------------------- 5. 상태 표시줄 -------------------------- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+}
+
+.status-segment {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-filename {
+  color: var(--text-primary);
+  flex-shrink: 0;
+  max-width: 220px;
+}
+
+.status-dimensions,
+.status-zoom {
+  flex-shrink: 0;
+}
+
+.status-message {
+  flex: 1 1 auto;
+  min-width: 60px;
+}
+
+.status-divider {
+  color: var(--border-strong);
+  flex-shrink: 0;
+}
+
+/* 내용이 비어있는 구간과 그 뒤 구분선을 함께 숨겨 불필요한 "|"가 남지 않도록 함 */
+.status-segment:empty + .status-divider {
+  display: none;
+}
+
+.status-message.status-warning { color: var(--warning); }
+.status-message.status-error { color: var(--danger); }
+
+/* -------------------------- 6. 모달 / 배너 / 오버레이 -------------------------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  width: min(360px, 90vw);
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-float);
+}
+
+.modal p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  margin-bottom: 18px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.error-banner {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(460px, 88%);
+  padding: 9px 8px 9px 13px;
+  background: var(--danger-bg);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  color: #ffdede;
+  font-size: 12.5px;
+  box-shadow: var(--shadow-float);
+  z-index: 30;
+}
+
+.error-banner button {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.error-banner button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.processing-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  font-size: 13px;
+  z-index: 20;
+}
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 포커스 표시 (키보드 접근성) */
+input[type="range"]:focus-visible,
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* -------------------------- 7. 반응형 대응 -------------------------- */
+@media (max-width: 760px) {
+  .toolbar {
+    padding: 8px 10px;
+  }
+  .status-filename {
+    max-width: 120px;
+  }
+  #toleranceSlider {
+    width: 84px;
+  }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ======================= 상단 툴바 ======================= -->
+  <header class="toolbar" role="toolbar" aria-label="도구 모음">
+
+    <div class="toolbar-group app-title-group">
+      <svg class="app-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <path d="M3.8 16.2 12 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M15 3v3.2M13.4 4.6h3.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M17.2 8.6v1.8M16.3 9.5h1.8" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
+      </svg>
+      <h1 class="app-title">PNG 배경 지우개</h1>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <div class="toolbar-group">
+      <button id="openBtn" class="btn" type="button" title="파일 열기 (Ctrl+O)" aria-label="PNG 파일 열기">
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M2.5 6.2c0-.66.54-1.2 1.2-1.2h3.4l1.4 1.6h7.3c.66 0 1.2.54 1.2 1.2v6.8c0 .66-.54 1.2-1.2 1.2H3.7c-.66 0-1.2-.54-1.2-1.2V6.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span>열기</span>
+      </button>
+      <button id="saveBtn" class="btn" type="button" title="PNG 저장 (Ctrl+S)" aria-label="PNG로 저장" disabled>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.2 3h9.1L16 5.7v10.1c0 .66-.54 1.2-1.2 1.2H4.2c-.66 0-1.2-.54-1.2-1.2V4.2c0-.66.54-1.2 1.2-1.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.4 3v3.6h5.2V3" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6 11.2h8v5.8H6z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        <span>저장</span>
+      </button>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <div class="toolbar-group">
+      <button id="undoBtn" class="btn" type="button" title="실행 취소 (Ctrl+Z)" aria-label="실행 취소" disabled>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4.5 8.5H12a3.8 3.8 0 0 1 0 7.6H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.3 5.3 4.1 8.5l3.2 3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>실행 취소</span>
+      </button>
+      <button id="redoBtn" class="btn" type="button" title="다시 실행 (Ctrl+Y)" aria-label="다시 실행" disabled>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M15.5 8.5H8a3.8 3.8 0 0 0 0 7.6h3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12.7 5.3l3.2 3.2-3.2 3.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>다시 실행</span>
+      </button>
+      <button id="resetBtn" class="btn" type="button" title="원본으로 초기화" aria-label="원본 이미지로 초기화" disabled>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M16 10a6 6 0 1 1-1.76-4.24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 3.6V7.6H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>초기화</span>
+      </button>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <div class="toolbar-group tolerance-group">
+      <label for="toleranceSlider">감도</label>
+      <input type="range" id="toleranceSlider" min="0" max="100" step="1" value="20" disabled>
+      <span id="toleranceValue" class="value-badge" aria-hidden="true">20</span>
+    </div>
+
+    <div class="toolbar-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="contiguousCheckbox" checked disabled>
+        <span>인접 영역만 선택</span>
+      </label>
+    </div>
+
+    <div class="toolbar-divider"></div>
+
+    <div class="toolbar-group zoom-group">
+      <button id="zoomOutBtn" class="btn icon-btn" type="button" title="축소" aria-label="축소" disabled>&minus;</button>
+      <span id="zoomValue" class="value-badge zoom-badge" aria-hidden="true">100%</span>
+      <button id="zoomInBtn" class="btn icon-btn" type="button" title="확대" aria-label="확대" disabled>+</button>
+      <button id="fitBtn" class="btn" type="button" title="화면 맞춤" aria-label="화면에 맞추기" disabled>
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M7 3.2H4.2a1 1 0 0 0-1 1V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 3.2h2.8a1 1 0 0 1 1 1V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 16.8H4.2a1 1 0 0 1-1-1V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 16.8h2.8a1 1 0 0 0 1-1V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>화면 맞춤</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ======================= 중앙 캔버스(이미지 편집) 영역 ======================= -->
+  <main class="canvas-area" id="canvasArea">
+
+    <div class="canvas-viewport" id="canvasViewport" hidden>
+      <canvas id="mainCanvas" role="img" aria-label="편집 중인 PNG 이미지"></canvas>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+      <svg class="empty-state-icon" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <rect x="8" y="14" width="48" height="36" rx="4" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/>
+        <circle cx="21" cy="26" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M8 42l14-12 10 8 8-6 14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <p>PNG 파일을 열거나 이곳으로 드래그하세요.</p>
+      <span class="empty-hint">이미지를 불러오면 매직완드로 배경을 클릭 한 번에 투명하게 지울 수 있습니다.</span>
+      <button id="emptyStateOpenBtn" class="btn btn-primary" type="button">PNG 파일 열기</button>
+    </div>
+
+    <div class="processing-overlay" id="processingOverlay" hidden aria-hidden="true">
+      <div class="spinner"></div>
+      <p>처리 중입니다…</p>
+    </div>
+
+    <div class="error-banner" id="errorBanner" hidden role="alert">
+      <span id="errorBannerText"></span>
+      <button id="errorBannerClose" type="button" aria-label="오류 메시지 닫기">&times;</button>
+    </div>
+
+  </main>
+
+  <!-- ======================= 하단 상태 표시줄 ======================= -->
+  <footer class="status-bar" id="statusBar">
+    <span id="statusFileName" class="status-segment status-filename"></span>
+    <span class="status-divider" aria-hidden="true">|</span>
+    <span id="statusDimensions" class="status-segment status-dimensions"></span>
+    <span class="status-divider" aria-hidden="true">|</span>
+    <span id="statusZoom" class="status-segment status-zoom"></span>
+    <span class="status-divider" aria-hidden="true">|</span>
+    <span id="statusMessage" class="status-segment status-message status-info" role="status" aria-live="polite"></span>
+  </footer>
+
+</div>
+
+<!-- ======================= 확인 모달 (초기화 등) ======================= -->
+<div class="modal-overlay" id="modalOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalMessage">
+    <p id="modalMessage"></p>
+    <div class="modal-actions">
+      <button id="modalCancelBtn" class="btn" type="button">취소</button>
+      <button id="modalConfirmBtn" class="btn btn-primary" type="button">초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- 숨겨진 파일 입력 (열기 버튼 / Ctrl+O 에서 트리거) -->
+<input type="file" id="fileInput" accept=".png,image/png" hidden aria-hidden="true">
+
+<script>
+(function () {
+  'use strict';
+
+  /* ========================================================================
+     0. 상수
+     ======================================================================== */
+
+  const MAX_UNDO_STATES = 15;          // Undo Stack 최대 저장 개수
+  const MIN_SCALE = 0.05;              // 최소 확대/축소 비율 (5%)
+  const MAX_SCALE = 20.0;              // 최대 확대/축소 비율 (2000%)
+  const DEFAULT_SCALE = 1.0;           // 기본 확대/축소 비율 (100%)
+  const ZOOM_STEP = 1.25;              // 확대/축소 1회 조작 시 배율
+  const DEFAULT_TOLERANCE = 20;        // 기본 감도(허용 오차)
+  const MAX_RGB_DISTANCE = Math.sqrt(255 * 255 * 3); // RGB 색상 공간 최대 유클리드 거리
+  const LARGE_IMAGE_WARNING_PIXELS = 16_000_000;     // 대용량 이미지 경고 기준(약 16MP)
+  const ERROR_BANNER_DURATION_MS = 6000;
+
+  /* ========================================================================
+     1. 상태 관리 (State)
+     요구사항 명세의 상태 객체 구조를 기반으로 구성하며,
+     실제 서비스 운용을 고려해 몇 가지 필드를 추가로 확장했다.
+     ======================================================================== */
+
+  const state = {
+    file: null,               // 원본 File 객체
+    fileName: '',              // 표시/저장에 사용할 파일명
+    width: 0,                 // 이미지 가로 픽셀 수
+    height: 0,                // 이미지 세로 픽셀 수
+    originalImageData: null,  // 최초 로드된 ImageData (읽기 전용으로 취급)
+    currentImageData: null,   // 현재 편집 중인 ImageData
+    undoStack: [],             // 실행 취소용 알파 채널 스냅샷 스택 (최대 MAX_UNDO_STATES)
+    redoStack: [],             // 다시 실행용 알파 채널 스냅샷 스택
+    scale: DEFAULT_SCALE,      // 현재 확대/축소 비율 (1.0 = 100%)
+    tolerance: DEFAULT_TOLERANCE, // 감도(허용 오차), 0~100
+    contiguous: true,          // 인접 영역만 선택 여부
+    isProcessing: false,       // 매직완드 연산 진행 중 여부 (중복 조작 방지)
+    transparentPixelCount: 0   // 현재 이미지의 투명 픽셀 총 개수 (정보 표시용)
+  };
+
+  // DOM 참조 캐시. init() 시점에 채워진다.
+  const dom = {};
+
+  // 모달 확인 시 실행할 콜백을 담아두는 변수 (전역 오염을 줄이기 위해 IIFE 스코프 내 단일 변수로 관리)
+  let pendingConfirmAction = null;
+  let errorBannerTimer = null;
+  let dragCounter = 0; // 드래그 하이라이트 깜빡임 방지를 위한 enter/leave 카운터
+
+  /* ========================================================================
+     2. 유틸리티 함수
+     ======================================================================== */
+
+  /** value를 [min, max] 범위로 제한한다. */
+  function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  /** 숫자를 한국어 로캘의 천 단위 구분 문자열로 변환한다 (예: 12345 -> "12,345"). */
+  function formatNumber(value) {
+    return Number(value).toLocaleString('ko-KR');
+  }
+
+  /**
+   * 두 RGB 색상 사이의 유클리드 거리를 계산한다.
+   * 매직완드 판정 자체는 성능을 위해 이 함수를 직접 호출하지 않고
+   * 제곱 거리(distance squared)를 인라인으로 계산하지만, 이 함수는
+   * 감도 -> 임계값 환산 및 향후 테스트/재사용을 위해 별도로 제공한다.
+   */
+  function calculateColorDistance(r1, g1, b1, r2, g2, b2) {
+    const dr = r1 - r2;
+    const dg = g1 - g2;
+    const db = b1 - b2;
+    return Math.sqrt(dr * dr + dg * dg + db * db);
+  }
+
+  /**
+   * 0~100 범위의 감도 값을 RGB 거리 임계값의 "제곱" 값으로 변환한다.
+   * 제곱 값을 사용하는 이유: 픽셀 단위 비교 시 Math.sqrt() 호출을 피해
+   * 대용량 이미지에서의 연산 성능을 확보하기 위함이다.
+   *   - 감도 0   -> 임계값 0  (기준 색상과 완전히 동일한 픽셀만 선택)
+   *   - 감도 100 -> 임계값 = RGB 공간에서 가능한 최대 거리
+   */
+  function toleranceToThresholdSquared(tolerance) {
+    const clamped = clamp(tolerance, 0, 100);
+    const threshold = (clamped / 100) * MAX_RGB_DISTANCE;
+    return threshold * threshold;
+  }
+
+  /** 다음 애니메이션 프레임이 실제로 화면에 반영된 뒤 callback을 실행한다.
+   *  (Web Worker 없이도 "처리 중" 표시가 먼저 페인트되도록 보장하는 용도) */
+  function runAfterPaint(callback) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(callback);
+    });
+  }
+
+  /* ========================================================================
+     3. 이미지 처리 함수 (매직완드 / Flood Fill)
+     - 이 섹션의 함수들은 DOM이나 전역 state를 직접 참조하지 않고
+       인자로 전달된 데이터만으로 동작하는 순수 함수에 가깝게 작성했다.
+       이는 향후 Web Worker로 그대로 옮겨 별도 스레드에서 실행할 수 있도록
+       하기 위함이다 (postMessage로 ImageData와 파라미터만 전달하면 됨).
+     ======================================================================== */
+
+  /**
+   * 인접(4방향 연결) 영역만 선택하는 Flood Fill 기반 매직완드 선택.
+   * 반복적인 스택 기반 DFS로 구현하여 매우 큰 연결 영역에서도
+   * 재귀 호출 스택 오버플로우 없이 동작한다.
+   *
+   * 이미 투명한(Alpha=0) 픽셀은 선택 대상에서 제외되며, 동시에
+   * 그 지점에서 더 이상 인접 탐색이 진행되지 않는 "경계"로 취급된다.
+   *
+   * @param {Uint8ClampedArray} data RGBA 픽셀 버퍼 (ImageData.data)
+   * @param {number} width 이미지 가로 픽셀 수
+   * @param {number} height 이미지 세로 픽셀 수
+   * @param {number} startX 클릭한 픽셀의 x 좌표
+   * @param {number} startY 클릭한 픽셀의 y 좌표
+   * @param {number} refR 기준 색상 R
+   * @param {number} refG 기준 색상 G
+   * @param {number} refB 기준 색상 B
+   * @param {number} thresholdSquared 허용 오차(제곱 거리)
+   * @returns {Uint8Array} mask, 인덱스 (y * width + x) 위치에 1이면 선택됨
+   */
+  function floodFillSelect(data, width, height, startX, startY, refR, refG, refB, thresholdSquared) {
+    const totalPixels = width * height;
+    const mask = new Uint8Array(totalPixels);
+    const visited = new Uint8Array(totalPixels);
+    // 최악의 경우(전체 픽셀이 모두 스택에 쌓이는 경우)에도 안전하도록
+    // Typed Array 기반의 고정 크기 스택을 사용한다.
+    const stack = new Int32Array(totalPixels);
+    let stackSize = 0;
+
+    const startIndex = startY * width + startX;
+    stack[stackSize++] = startIndex;
+    visited[startIndex] = 1;
+
+    while (stackSize > 0) {
+      const idx = stack[--stackSize];
+      const p = idx * 4;
+
+      // 이미 투명한 픽셀은 선택하지 않고, 탐색도 이 지점에서 멈춘다.
+      if (data[p + 3] === 0) continue;
+
+      const dr = data[p] - refR;
+      const dg = data[p + 1] - refG;
+      const db = data[p + 2] - refB;
+      const distSq = dr * dr + dg * dg + db * db;
+      if (distSq > thresholdSquared) continue;
+
+      mask[idx] = 1;
+
+      const x = idx % width;
+      const y = (idx - x) / width;
+
+      if (x > 0) {
+        const left = idx - 1;
+        if (!visited[left]) { visited[left] = 1; stack[stackSize++] = left; }
+      }
+      if (x < width - 1) {
+        const right = idx + 1;
+        if (!visited[right]) { visited[right] = 1; stack[stackSize++] = right; }
+      }
+      if (y > 0) {
+        const up = idx - width;
+        if (!visited[up]) { visited[up] = 1; stack[stackSize++] = up; }
+      }
+      if (y < height - 1) {
+        const down = idx + width;
+        if (!visited[down]) { visited[down] = 1; stack[stackSize++] = down; }
+      }
+    }
+
+    return mask;
+  }
+
+  /**
+   * 인접 여부와 무관하게 이미지 전체에서 조건을 만족하는 픽셀을 선택한다.
+   * ('인접 영역만 선택' 옵션이 꺼져 있을 때 사용)
+   */
+  function globalColorSelect(data, width, height, refR, refG, refB, thresholdSquared) {
+    const totalPixels = width * height;
+    const mask = new Uint8Array(totalPixels);
+
+    for (let idx = 0; idx < totalPixels; idx++) {
+      const p = idx * 4;
+      if (data[p + 3] === 0) continue; // 이미 투명한 픽셀은 제외
+
+      const dr = data[p] - refR;
+      const dg = data[p + 1] - refG;
+      const db = data[p + 2] - refB;
+      const distSq = dr * dr + dg * dg + db * db;
+
+      if (distSq <= thresholdSquared) {
+        mask[idx] = 1;
+      }
+    }
+
+    return mask;
+  }
+
+  /** mask에서 선택된(1인) 픽셀의 개수를 센다. */
+  function countMask(mask) {
+    let count = 0;
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i]) count++;
+    }
+    return count;
+  }
+
+  /** mask로 선택된 픽셀들의 Alpha 값을 0으로 변경한다. RGB 값은 건드리지 않는다. */
+  function applyMaskAsTransparent(data, mask) {
+    for (let i = 0; i < mask.length; i++) {
+      if (mask[i]) {
+        data[i * 4 + 3] = 0;
+      }
+    }
+  }
+
+  /**
+   * 지정한 이미지 좌표에서 매직완드 동작을 수행하는 진입점(컨트롤러) 함수.
+   * 선택 알고리즘(순수 함수) 호출과 Undo 저장, 렌더링, 상태 표시줄 갱신을
+   * 조율하는 역할을 담당한다.
+   */
+  function performMagicWandAt(imageX, imageY) {
+    if (!state.currentImageData || state.isProcessing) return;
+
+    const width = state.width;
+    const height = state.height;
+
+    // 좌표 유효성 검사: 범위를 벗어나면 아무 작업도 하지 않는다.
+    if (imageX < 0 || imageX >= width || imageY < 0 || imageY >= height) {
+      return;
+    }
+
+    const data = state.currentImageData.data;
+    const clickIndex = imageY * width + imageX;
+    const clickOffset = clickIndex * 4;
+
+    // 이미 투명한 픽셀을 클릭한 경우 아무 작업도 하지 않는다.
+    if (data[clickOffset + 3] === 0) {
+      setStatusMessage('이미 투명한 영역입니다.', 'info');
+      return;
+    }
+
+    const refR = data[clickOffset];
+    const refG = data[clickOffset + 1];
+    const refB = data[clickOffset + 2];
+    const thresholdSquared = toleranceToThresholdSquared(state.tolerance);
+    const contiguous = state.contiguous;
+
+    beginProcessing();
+
+    // 무거운 동기 연산 전에 "처리 중" 오버레이가 실제로 화면에 그려질 기회를 준다.
+    // (초기 버전은 일반 JavaScript로 동작하며, 아래 두 함수는 인자만으로 동작하는
+    //  순수 함수이므로 향후 Web Worker로 옮겨도 이 컨트롤러의 구조는 그대로 유지된다.)
+    runAfterPaint(function () {
+      try {
+        const mask = contiguous
+          ? floodFillSelect(data, width, height, imageX, imageY, refR, refG, refB, thresholdSquared)
+          : globalColorSelect(data, width, height, refR, refG, refB, thresholdSquared);
+
+        const changedCount = countMask(mask);
+
+        if (changedCount === 0) {
+          setStatusMessage('선택된 영역이 없습니다.', 'warning');
+          return;
+        }
+
+        // 수정 전 상태를 Undo Stack에 저장한 뒤 변경을 적용한다.
+        pushUndoState();
+        applyMaskAsTransparent(state.currentImageData.data, mask);
+
+        renderCanvas();
+        refreshTransparentPixelInfo();
+        setStatusMessage(formatNumber(changedCount) + '개 픽셀을 투명하게 변경했습니다.', 'info');
+      } catch (err) {
+        console.error('[매직완드 처리 오류]', err);
+        setStatusMessage('이미지 처리 중 오류가 발생했습니다.', 'error');
+      } finally {
+        endProcessing();
+      }
+    });
+  }
+
+  /* ========================================================================
+     4. Undo / Redo 관리
+     - 이 앱에서 매직완드/초기화 동작은 오직 Alpha 채널만 변경하므로,
+       Undo/Redo 스냅샷은 RGBA 전체가 아닌 Alpha 채널만 저장한다.
+       (요구사항 10번: "Undo/Redo 상태 저장 시 필요한 데이터만 관리")
+     ======================================================================== */
+
+  /** 지정한 ImageData의 Alpha 채널만 추출한 스냅샷을 만든다. */
+  function captureAlphaSnapshot(imageData) {
+    const data = imageData.data;
+    const pixelCount = data.length / 4;
+    const alpha = new Uint8ClampedArray(pixelCount);
+    for (let i = 0; i < pixelCount; i++) {
+      alpha[i] = data[i * 4 + 3];
+    }
+    return alpha;
+  }
+
+  /** Alpha 채널 스냅샷을 지정한 ImageData에 다시 적용한다. */
+  function applyAlphaSnapshot(imageData, alphaSnapshot) {
+    const data = imageData.data;
+    for (let i = 0; i < alphaSnapshot.length; i++) {
+      data[i * 4 + 3] = alphaSnapshot[i];
+    }
+  }
+
+  /** 현재(수정 전) 상태를 Undo Stack에 저장하고, Redo Stack을 초기화한다.
+   *  실제로 편집을 적용하기 "직전"에 호출해야 한다. */
+  function pushUndoState() {
+    state.undoStack.push(captureAlphaSnapshot(state.currentImageData));
+    if (state.undoStack.length > MAX_UNDO_STATES) {
+      state.undoStack.shift(); // 가장 오래된 상태부터 제거
+    }
+    state.redoStack = [];
+    updateUndoRedoButtons();
+  }
+
+  function undo() {
+    if (state.isProcessing || state.undoStack.length === 0) return;
+    state.redoStack.push(captureAlphaSnapshot(state.currentImageData));
+    const previous = state.undoStack.pop();
+    applyAlphaSnapshot(state.currentImageData, previous);
+    renderCanvas();
+    refreshTransparentPixelInfo();
+    setStatusMessage('실행 취소했습니다.', 'info');
+    updateUndoRedoButtons();
+  }
+
+  function redo() {
+    if (state.isProcessing || state.redoStack.length === 0) return;
+    state.undoStack.push(captureAlphaSnapshot(state.currentImageData));
+    if (state.undoStack.length > MAX_UNDO_STATES) {
+      state.undoStack.shift();
+    }
+    const next = state.redoStack.pop();
+    applyAlphaSnapshot(state.currentImageData, next);
+    renderCanvas();
+    refreshTransparentPixelInfo();
+    setStatusMessage('다시 실행했습니다.', 'info');
+    updateUndoRedoButtons();
+  }
+
+  /** 원본 이미지로 되돌린다. 이 동작 자체도 Undo 대상에 포함된다. */
+  function resetToOriginal() {
+    if (state.isProcessing || !state.currentImageData || !state.originalImageData) return;
+
+    showConfirmModal('편집 내용을 모두 취소하고 원본 이미지로 되돌립니다. 계속하시겠습니까?', function () {
+      pushUndoState();
+      const originalAlpha = captureAlphaSnapshot(state.originalImageData);
+      applyAlphaSnapshot(state.currentImageData, originalAlpha);
+      renderCanvas();
+      refreshTransparentPixelInfo();
+      setStatusMessage('원본 이미지로 초기화했습니다.', 'info');
+    });
+  }
+
+  function updateUndoRedoButtons() {
+    dom.undoBtn.disabled = state.isProcessing || state.undoStack.length === 0;
+    dom.redoBtn.disabled = state.isProcessing || state.redoStack.length === 0;
+  }
+
+  /* ========================================================================
+     5. Canvas 렌더링 함수
+     ======================================================================== */
+
+  /** state.currentImageData의 내용을 캔버스에 그대로 그린다. */
+  function renderCanvas() {
+    if (!state.currentImageData) return;
+    dom.canvasContext.putImageData(state.currentImageData, 0, 0);
+  }
+
+  /** 현재 scale에 맞춰 캔버스의 화면 표시 크기(CSS 크기)를 갱신한다.
+   *  캔버스의 실제 해상도(width/height 속성)는 항상 원본 이미지 픽셀
+   *  크기로 유지하고, 확대/축소는 CSS 크기 조정만으로 처리한다.
+   *  -> 원본 ImageData를 변경하지 않고도 확대/축소가 가능하다. */
+  function updateCanvasDisplaySize() {
+    const displayWidth = Math.max(1, Math.round(state.width * state.scale));
+    const displayHeight = Math.max(1, Math.round(state.height * state.scale));
+    dom.mainCanvas.style.width = displayWidth + 'px';
+    dom.mainCanvas.style.height = displayHeight + 'px';
+    // 100%를 초과해 확대된 경우 픽셀 경계를 또렷하게 보여준다.
+    dom.mainCanvas.classList.toggle('pixelated', state.scale > 1);
+  }
+
+  /** 화면(뷰포트) 좌표를 이미지 픽셀 좌표로 변환한다. */
+  function getImageCoordsFromClientPoint(clientX, clientY) {
+    const rect = dom.mainCanvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const scaleX = dom.mainCanvas.width / rect.width;
+    const scaleY = dom.mainCanvas.height / rect.height;
+    const x = Math.floor((clientX - rect.left) * scaleX);
+    const y = Math.floor((clientY - rect.top) * scaleY);
+    return { x: x, y: y };
+  }
+
+  /* ========================================================================
+     6. 확대 / 축소 함수
+     ======================================================================== */
+
+  /**
+   * 새로운 확대/축소 비율을 적용한다. anchorClientX/Y가 주어지면 해당 화면
+   * 좌표 아래의 이미지 지점이 확대/축소 후에도 그대로 유지되도록 스크롤
+   * 위치를 함께 보정한다(마우스 커서 중심 확대/축소). 주어지지 않으면
+   * 뷰포트 중앙을 기준으로 한다.
+   */
+  function setZoom(newScale, anchorClientX, anchorClientY) {
+    if (!state.currentImageData) return;
+    const clamped = clamp(newScale, MIN_SCALE, MAX_SCALE);
+    if (clamped === state.scale) return;
+
+    const viewport = dom.canvasViewport;
+    const rect = viewport.getBoundingClientRect();
+    const ax = (anchorClientX != null) ? anchorClientX : rect.left + rect.width / 2;
+    const ay = (anchorClientY != null) ? anchorClientY : rect.top + rect.height / 2;
+
+    // 확대/축소 전, 앵커 지점 아래에 있던 이미지 공간 좌표를 계산해둔다.
+    const beforeX = (viewport.scrollLeft + (ax - rect.left)) / state.scale;
+    const beforeY = (viewport.scrollTop + (ay - rect.top)) / state.scale;
+
+    state.scale = clamped;
+    updateCanvasDisplaySize();
+
+    // 동일한 이미지 지점이 앵커 아래 그대로 위치하도록 스크롤을 보정한다.
+    viewport.scrollLeft = beforeX * state.scale - (ax - rect.left);
+    viewport.scrollTop = beforeY * state.scale - (ay - rect.top);
+
+    updateZoomDisplay();
+  }
+
+  function zoomIn(anchorClientX, anchorClientY) {
+    if (!state.currentImageData) return;
+    setZoom(state.scale * ZOOM_STEP, anchorClientX, anchorClientY);
+  }
+
+  function zoomOut(anchorClientX, anchorClientY) {
+    if (!state.currentImageData) return;
+    setZoom(state.scale / ZOOM_STEP, anchorClientX, anchorClientY);
+  }
+
+  /** 이미지가 편집 영역 안에 온전히 들어오는 최대 비율로 맞춘다. */
+  function fitToScreen() {
+    if (!state.currentImageData) return;
+    const viewport = dom.canvasViewport;
+    const style = getComputedStyle(viewport);
+    const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const availableWidth = Math.max(1, viewport.clientWidth - paddingX);
+    const availableHeight = Math.max(1, viewport.clientHeight - paddingY);
+
+    const scaleX = availableWidth / state.width;
+    const scaleY = availableHeight / state.height;
+    const fitScale = clamp(Math.min(scaleX, scaleY), MIN_SCALE, MAX_SCALE);
+
+    state.scale = fitScale;
+    updateCanvasDisplaySize();
+    viewport.scrollLeft = 0;
+    viewport.scrollTop = 0;
+    updateZoomDisplay();
+  }
+
+  function updateZoomDisplay() {
+    const percent = Math.round(state.scale * 100);
+    dom.zoomValue.textContent = percent + '%';
+    dom.statusZoom.textContent = '확대/축소 ' + percent + '%';
+  }
+
+  /* ========================================================================
+     7. PNG 인코딩 함수 (라이브러리 없이 직접 구현)
+     ------------------------------------------------------------------------
+     브라우저의 canvas.toBlob('image/png')는 내부적으로 프리멀티플라이드
+     알파(premultiplied alpha)로 픽셀을 저장하기 때문에, Alpha=0인 픽셀의
+     RGB 값이 (0,0,0)으로 손실되는 특성이 있다(모든 최신 브라우저 공통).
+     매직완드로 투명하게 만든 영역이라도 RGB 값 자체는 변경하지 않는다는
+     요구사항을 저장 파일에서도 보장하기 위해, PNG를 직접 인코딩한다.
+     (외부 라이브러리 없이 CRC-32 / Adler-32 / zlib 프레이밍과 DEFLATE
+     압축(LZ77 + 고정 허프만 코드, RFC 1951)까지 직접 구현했으며, 표준을
+     그대로 따르므로 모든 PNG 디코더에서 정상적으로 열린다.)
+     ======================================================================== */
+
+  const CRC_TABLE = (function () {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) {
+      crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function adler32(bytes) {
+    const MOD_ADLER = 65521;
+    let a = 1, b = 0;
+    const NMAX = 5552; // zlib 참조 구현과 동일한, 오버플로우 없이 처리 가능한 최대 블록 크기
+    let i = 0;
+    const len = bytes.length;
+    while (i < len) {
+      const block = Math.min(NMAX, len - i);
+      for (let j = 0; j < block; j++, i++) {
+        a += bytes[i];
+        b += a;
+      }
+      a %= MOD_ADLER;
+      b %= MOD_ADLER;
+    }
+    return ((b << 16) | a) >>> 0;
+  }
+
+  function concatUint8Arrays(arrays) {
+    let total = 0;
+    for (let i = 0; i < arrays.length; i++) total += arrays[i].length;
+    const result = new Uint8Array(total);
+    let offset = 0;
+    for (let i = 0; i < arrays.length; i++) {
+      result.set(arrays[i], offset);
+      offset += arrays[i].length;
+    }
+    return result;
+  }
+
+  /** 원본 바이트를 DEFLATE의 "저장(stored, 비압축)" 블록으로 감싼다 (RFC 1951 §3.2.4).
+   *  아래 압축 인코더가 예기치 않게 실패했을 때의 안전망(fallback)으로 사용된다. */
+  function deflateStoreBlocks(bytes) {
+    const maxBlockSize = 65535;
+    const blocks = [];
+    const total = bytes.length;
+
+    if (total === 0) {
+      const header = new Uint8Array(5);
+      header[0] = 1; // BFINAL=1, BTYPE=00
+      header[3] = 0xFF; header[4] = 0xFF; // NLEN = ~0
+      blocks.push(header);
+      return concatUint8Arrays(blocks);
+    }
+
+    let offset = 0;
+    while (offset < total) {
+      const remaining = total - offset;
+      const blockLen = Math.min(maxBlockSize, remaining);
+      const isFinal = (offset + blockLen) >= total;
+      const header = new Uint8Array(5);
+      header[0] = isFinal ? 1 : 0; // BFINAL 비트 (BTYPE=00은 이미 0)
+      header[1] = blockLen & 0xFF;
+      header[2] = (blockLen >>> 8) & 0xFF;
+      const nlen = (~blockLen) & 0xFFFF;
+      header[3] = nlen & 0xFF;
+      header[4] = (nlen >>> 8) & 0xFF;
+      blocks.push(header);
+      blocks.push(bytes.subarray(offset, offset + blockLen));
+      offset += blockLen;
+    }
+
+    return concatUint8Arrays(blocks);
+  }
+
+  /* ---- DEFLATE 압축 (LZ77 + 고정 허프만 코드, RFC 1951 §3.2.5~3.2.6) ----
+     실제 zlib 수준의 압축률까지는 아니지만, 이 앱의 핵심 사용 사례(넓은
+     단색 배경을 투명하게 지우는 것)에서 매우 큰 압축 효과를 낸다. */
+
+  class BitWriter {
+    constructor() {
+      this.bytes = [];
+      this.current = 0;
+      this.bitPos = 0;
+    }
+    // 일반 비트 필드(길이/거리의 extra bits 등)는 그대로 순서대로 채운다.
+    writeBits(value, numBits) {
+      for (let i = 0; i < numBits; i++) {
+        const bit = (value >>> i) & 1;
+        this.current |= (bit << this.bitPos);
+        this.bitPos++;
+        if (this.bitPos === 8) {
+          this.bytes.push(this.current);
+          this.current = 0;
+          this.bitPos = 0;
+        }
+      }
+    }
+    // 허프만 코드는 코드 값 자체는 MSB-first로 정의되지만, 비트스트림 전체는
+    // 바이트 단위 LSB-first로 채워진다(RFC 1951 §3.1.1).
+    writeHuffmanCode(code, length) {
+      for (let i = length - 1; i >= 0; i--) {
+        const bit = (code >>> i) & 1;
+        this.current |= (bit << this.bitPos);
+        this.bitPos++;
+        if (this.bitPos === 8) {
+          this.bytes.push(this.current);
+          this.current = 0;
+          this.bitPos = 0;
+        }
+      }
+    }
+    finish() {
+      if (this.bitPos > 0) {
+        this.bytes.push(this.current);
+        this.current = 0;
+        this.bitPos = 0;
+      }
+      return new Uint8Array(this.bytes);
+    }
+  }
+
+  /** RFC 1951 §3.2.2: 심볼별 코드 길이 배열로부터 표준(canonical) 허프만 코드를 만든다. */
+  function buildHuffmanCodes(codeLengths) {
+    const maxBits = Math.max.apply(null, codeLengths);
+    const blCount = new Array(maxBits + 1).fill(0);
+    for (const len of codeLengths) {
+      if (len > 0) blCount[len]++;
+    }
+    const nextCode = new Array(maxBits + 1).fill(0);
+    let code = 0;
+    for (let bits = 1; bits <= maxBits; bits++) {
+      code = (code + blCount[bits - 1]) << 1;
+      nextCode[bits] = code;
+    }
+    const codes = new Array(codeLengths.length).fill(0);
+    for (let n = 0; n < codeLengths.length; n++) {
+      const len = codeLengths[n];
+      if (len > 0) {
+        codes[n] = nextCode[len];
+        nextCode[len]++;
+      }
+    }
+    return codes;
+  }
+
+  // RFC 1951 §3.2.6: 고정 허프만 코드의 리터럴/길이 심볼(0~287)별 코드 길이.
+  function buildFixedLitLenLengths() {
+    const lengths = new Array(288);
+    for (let i = 0; i <= 143; i++) lengths[i] = 8;
+    for (let i = 144; i <= 255; i++) lengths[i] = 9;
+    for (let i = 256; i <= 279; i++) lengths[i] = 7;
+    for (let i = 280; i <= 287; i++) lengths[i] = 8;
+    return lengths;
+  }
+  // RFC 1951 §3.2.6: 고정 허프만 거리 코드(0~29)는 모두 5비트.
+  function buildFixedDistLengths() {
+    return new Array(30).fill(5);
+  }
+
+  // RFC 1951 §3.2.5: 길이 코드 표. 인덱스 = 코드값(257~285) - 257. [기준길이, 추가비트수]
+  const LENGTH_TABLE = [
+    [3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0],
+    [11,1],[13,1],[15,1],[17,1],
+    [19,2],[23,2],[27,2],[31,2],
+    [35,3],[43,3],[51,3],[59,3],
+    [67,4],[83,4],[99,4],[115,4],
+    [131,5],[163,5],[195,5],[227,5],
+    [258,0]
+  ];
+  // RFC 1951 §3.2.5: 거리 코드 표. 인덱스 = 거리 코드(0~29). [기준거리, 추가비트수]
+  const DIST_TABLE = [
+    [1,0],[2,0],[3,0],[4,0],
+    [5,1],[7,1],
+    [9,2],[13,2],
+    [17,3],[25,3],
+    [33,4],[49,4],
+    [65,5],[97,5],
+    [129,6],[193,6],
+    [257,7],[385,7],
+    [513,8],[769,8],
+    [1025,9],[1537,9],
+    [2049,10],[3073,10],
+    [4097,11],[6145,11],
+    [8193,12],[12289,12],
+    [16385,13],[24577,13]
+  ];
+
+  function findLengthCode(length) {
+    for (let i = LENGTH_TABLE.length - 1; i >= 0; i--) {
+      if (length >= LENGTH_TABLE[i][0]) return i;
+    }
+    return 0;
+  }
+  function findDistCode(distance) {
+    for (let i = DIST_TABLE.length - 1; i >= 0; i--) {
+      if (distance >= DIST_TABLE[i][0]) return i;
+    }
+    return 0;
+  }
+
+  // 고정 허프만 코드 테이블은 입력에 관계없이 항상 동일하므로, 매 저장마다
+  // 다시 만들지 않고 모듈 로드 시 한 번만 계산해 둔다.
+  const FIXED_LITLEN_LENGTHS = buildFixedLitLenLengths();
+  const FIXED_LITLEN_CODES = buildHuffmanCodes(FIXED_LITLEN_LENGTHS);
+  const FIXED_DIST_LENGTHS = buildFixedDistLengths();
+  const FIXED_DIST_CODES = buildHuffmanCodes(FIXED_DIST_LENGTHS);
+
+  const LZ77_WINDOW_SIZE = 32768; // DEFLATE 규격상 최대 탐색 거리
+  const LZ77_MIN_MATCH = 3;
+  const LZ77_MAX_MATCH = 258;
+
+  /**
+   * 입력 크기가 커질수록 매칭 탐색 강도를 낮춰 최악의 경우(대용량 + 압축이
+   * 거의 안 되는 데이터)에도 실행 시간이 과도하게 길어지지 않도록 한다.
+   * 이 앱의 핵심 사용 사례인 "넓은 단색 배경"은 어느 단계에서도 즉시
+   * 매칭되므로 이 조정의 영향을 거의 받지 않는다.
+   */
+  function pickLz77EffortParams(byteLength) {
+    if (byteLength <= 16_000_000) return { maxChain: 48, goodEnough: 64 };  // 약 4메가픽셀 이하
+    if (byteLength <= 48_000_000) return { maxChain: 16, goodEnough: 32 };  // 약 12메가픽셀 이하
+    if (byteLength <= 96_000_000) return { maxChain: 6, goodEnough: 24 };   // 약 24메가픽셀 이하
+    return { maxChain: 2, goodEnough: 16 };
+  }
+
+  function lz77Hash3(bytes, i) {
+    return ((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]) & 0x7FFF;
+  }
+
+  /**
+   * 원본 바이트를 하나의 DEFLATE 고정 허프만(BTYPE=01) 블록으로 압축 인코딩한다.
+   * 해시 체인 기반 LZ77 매칭 결과를 토큰 배열로 모았다가 나중에 인코딩하지
+   * 않고, 매칭/리터럴을 찾는 즉시 비트스트림에 바로 써 내려가는 단일
+   * 패스 구조를 사용한다(압축이 거의 안 되는 대용량 입력에서는 리터럴마다
+   * 별도 객체를 배열에 쌓는 방식이 탐색 비용보다 훨씬 큰 병목이 되기
+   * 때문이다).
+   */
+  function deflateCompress(bytes) {
+    const n = bytes.length;
+    const effort = pickLz77EffortParams(n);
+    const maxChain = effort.maxChain;
+    const goodEnoughLength = effort.goodEnough;
+
+    const bw = new BitWriter();
+    bw.writeBits(1, 1);    // BFINAL = 1 (블록 1개로 전체 데이터를 인코딩)
+    bw.writeBits(0b01, 2); // BTYPE = 01 (고정 허프만)
+
+    const HASH_SIZE = 1 << 15;
+    const head = new Int32Array(HASH_SIZE).fill(-1);
+    const prev = new Int32Array(n > 0 ? n : 1).fill(-1);
+
+    let i = 0;
+    while (i < n) {
+      let bestLen = 0;
+      let bestDist = 0;
+
+      if (i + LZ77_MIN_MATCH <= n) {
+        const h = lz77Hash3(bytes, i);
+        let candidate = head[h];
+        let chainSteps = 0;
+        const maxLen = Math.min(LZ77_MAX_MATCH, n - i);
+
+        while (candidate !== -1 && chainSteps < maxChain) {
+          const distance = i - candidate;
+          if (distance > LZ77_WINDOW_SIZE) break;
+
+          if (bestLen === 0 || bytes[candidate + bestLen] === bytes[i + bestLen]) {
+            let len = 0;
+            while (len < maxLen && bytes[candidate + len] === bytes[i + len]) len++;
+            if (len > bestLen) {
+              bestLen = len;
+              bestDist = distance;
+              if (bestLen >= maxLen || bestLen >= goodEnoughLength) break;
+            }
+          }
+          candidate = prev[candidate];
+          chainSteps++;
+        }
+      }
+
+      if (bestLen >= LZ77_MIN_MATCH) {
+        const lenCodeIdx = findLengthCode(bestLen);
+        const lenBase = LENGTH_TABLE[lenCodeIdx][0];
+        const lenExtraBits = LENGTH_TABLE[lenCodeIdx][1];
+        const lenSymbol = 257 + lenCodeIdx;
+        bw.writeHuffmanCode(FIXED_LITLEN_CODES[lenSymbol], FIXED_LITLEN_LENGTHS[lenSymbol]);
+        if (lenExtraBits > 0) bw.writeBits(bestLen - lenBase, lenExtraBits);
+
+        const distCodeIdx = findDistCode(bestDist);
+        const distBase = DIST_TABLE[distCodeIdx][0];
+        const distExtraBits = DIST_TABLE[distCodeIdx][1];
+        bw.writeHuffmanCode(FIXED_DIST_CODES[distCodeIdx], FIXED_DIST_LENGTHS[distCodeIdx]);
+        if (distExtraBits > 0) bw.writeBits(bestDist - distBase, distExtraBits);
+
+        const end = i + bestLen;
+        for (; i < end; i++) {
+          if (i + LZ77_MIN_MATCH <= n) {
+            const h = lz77Hash3(bytes, i);
+            prev[i] = head[h];
+            head[h] = i;
+          }
+        }
+      } else {
+        const sym = bytes[i];
+        bw.writeHuffmanCode(FIXED_LITLEN_CODES[sym], FIXED_LITLEN_LENGTHS[sym]);
+        if (i + LZ77_MIN_MATCH <= n) {
+          const h = lz77Hash3(bytes, i);
+          prev[i] = head[h];
+          head[h] = i;
+        }
+        i++;
+      }
+    }
+
+    bw.writeHuffmanCode(FIXED_LITLEN_CODES[256], FIXED_LITLEN_LENGTHS[256]); // end-of-block
+    return bw.finish();
+  }
+
+  /** 원본 바이트를 zlib 스트림(헤더 + DEFLATE 데이터 + Adler-32)으로 감싼다.
+   *  우선 압축 인코더를 시도하고, 예기치 않은 오류 발생 시에만 항상 안전한
+   *  저장(stored) 방식으로 대체한다. */
+  function zlibWrap(rawBytes) {
+    let deflateBody;
+    try {
+      deflateBody = deflateCompress(rawBytes);
+    } catch (err) {
+      console.error('[PNG 압축 오류 - 비압축 방식으로 대체]', err);
+      deflateBody = deflateStoreBlocks(rawBytes);
+    }
+    const header = new Uint8Array([0x78, 0x9C]); // CMF/FLG: 32K 윈도우, 기본 압축 힌트
+    const checksum = adler32(rawBytes);
+    const trailer = new Uint8Array(4);
+    trailer[0] = (checksum >>> 24) & 0xFF;
+    trailer[1] = (checksum >>> 16) & 0xFF;
+    trailer[2] = (checksum >>> 8) & 0xFF;
+    trailer[3] = checksum & 0xFF;
+    return concatUint8Arrays([header, deflateBody, trailer]);
+  }
+
+  function buildPngChunk(typeStr, dataBytes) {
+    const typeBytes = new Uint8Array(4);
+    for (let i = 0; i < 4; i++) typeBytes[i] = typeStr.charCodeAt(i);
+
+    const len = dataBytes.length;
+    const lengthBytes = new Uint8Array(4);
+    lengthBytes[0] = (len >>> 24) & 0xFF;
+    lengthBytes[1] = (len >>> 16) & 0xFF;
+    lengthBytes[2] = (len >>> 8) & 0xFF;
+    lengthBytes[3] = len & 0xFF;
+
+    const crcInput = concatUint8Arrays([typeBytes, dataBytes]);
+    const crc = crc32(crcInput);
+    const crcBytes = new Uint8Array(4);
+    crcBytes[0] = (crc >>> 24) & 0xFF;
+    crcBytes[1] = (crc >>> 16) & 0xFF;
+    crcBytes[2] = (crc >>> 8) & 0xFF;
+    crcBytes[3] = crc & 0xFF;
+
+    return concatUint8Arrays([lengthBytes, typeBytes, dataBytes, crcBytes]);
+  }
+
+  /** ImageData를 표준 PNG(8bit RGBA) 바이트로 직접 인코딩한다 (RGB 값 완전 보존). */
+  function encodePngFromImageData(imageData) {
+    const width = imageData.width;
+    const height = imageData.height;
+    const src = imageData.data;
+
+    const ihdrData = new Uint8Array(13);
+    ihdrData[0] = (width >>> 24) & 0xFF;
+    ihdrData[1] = (width >>> 16) & 0xFF;
+    ihdrData[2] = (width >>> 8) & 0xFF;
+    ihdrData[3] = width & 0xFF;
+    ihdrData[4] = (height >>> 24) & 0xFF;
+    ihdrData[5] = (height >>> 16) & 0xFF;
+    ihdrData[6] = (height >>> 8) & 0xFF;
+    ihdrData[7] = height & 0xFF;
+    ihdrData[8] = 8;  // bit depth
+    ihdrData[9] = 6;  // color type: truecolor + alpha (RGBA)
+    ihdrData[10] = 0; // compression method
+    ihdrData[11] = 0; // filter method
+    ihdrData[12] = 0; // interlace method
+
+    // 각 행: [필터 타입=0(None)] + width*4 바이트의 RGBA
+    const rowBytes = width * 4;
+    const raw = new Uint8Array(height * (1 + rowBytes));
+    let rawOffset = 0;
+    for (let y = 0; y < height; y++) {
+      raw[rawOffset++] = 0;
+      const rowStart = y * rowBytes;
+      raw.set(src.subarray(rowStart, rowStart + rowBytes), rawOffset);
+      rawOffset += rowBytes;
+    }
+
+    const idatData = zlibWrap(raw);
+
+    const signature = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+    const ihdrChunk = buildPngChunk('IHDR', ihdrData);
+    const idatChunk = buildPngChunk('IDAT', idatData);
+    const iendChunk = buildPngChunk('IEND', new Uint8Array(0));
+
+    return concatUint8Arrays([signature, ihdrChunk, idatChunk, iendChunk]);
+  }
+
+  /* ========================================================================
+     8. 파일 입출력 함수
+     ======================================================================== */
+
+  /** MIME 타입 또는 확장자를 통해 PNG 파일인지 판별한다. */
+  function isPngFile(file) {
+    if (!file) return false;
+    if (file.type === 'image/png') return true;
+    return /\.png$/i.test(file.name || '');
+  }
+
+  function openFileDialog() {
+    dom.fileInput.click();
+  }
+
+  function handleFileInputChange(event) {
+    const file = event.target.files && event.target.files[0];
+    event.target.value = ''; // 동일한 파일을 다시 선택할 수 있도록 초기화
+    if (file) loadPngFile(file);
+  }
+
+  /**
+   * PNG 파일을 읽어 Image 객체로 로드한 뒤 앱 상태를 초기화한다.
+   * 파일 열기 버튼과 드래그 앤 드롭 양쪽에서 공용으로 사용한다.
+   */
+  function loadPngFile(file) {
+    if (state.isProcessing) return;
+
+    if (!isPngFile(file)) {
+      setStatusMessage('PNG 파일만 열 수 있습니다.', 'warning');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = function () {
+      URL.revokeObjectURL(objectUrl);
+      try {
+        initializeImageState(img, file);
+      } catch (err) {
+        console.error('[이미지 초기화 오류]', err);
+        setStatusMessage('이미지를 불러오는 중 오류가 발생했습니다.', 'error');
+      }
+    };
+
+    img.onerror = function () {
+      URL.revokeObjectURL(objectUrl);
+      setStatusMessage('이미지를 불러올 수 없습니다. 손상된 파일일 수 있습니다.', 'error');
+    };
+
+    img.src = objectUrl;
+  }
+
+  /** 새로 로드된 이미지를 기준으로 애플리케이션 상태 전체를 초기화한다. */
+  function initializeImageState(img, file) {
+    const width = img.naturalWidth;
+    const height = img.naturalHeight;
+
+    if (!width || !height) {
+      throw new Error('Invalid image dimensions');
+    }
+
+    dom.mainCanvas.width = width;
+    dom.mainCanvas.height = height;
+    dom.canvasContext.clearRect(0, 0, width, height);
+    // 참고: drawImage()는 내부적으로 알파 합성을 거치므로, 불러오는 원본 PNG에
+    // "이미 알파가 0이면서 RGB 값을 갖고 있는" 픽셀이 존재했다면 그 RGB 값은
+    // 이 시점에 브라우저 공통의 한계로 소실될 수 있다(모든 최신 브라우저 동일).
+    // 이 앱이 매직완드로 새로 투명하게 만드는 픽셀의 RGB는 putImageData 기반의
+    // 자체 인코더(7번 섹션)로 저장 시 완전히 보존되며, 이는 이미 검증되었다.
+    dom.canvasContext.drawImage(img, 0, 0);
+
+    const imageData = dom.canvasContext.getImageData(0, 0, width, height);
+
+    state.file = file;
+    state.fileName = file.name;
+    state.width = width;
+    state.height = height;
+    state.originalImageData = new ImageData(new Uint8ClampedArray(imageData.data), width, height);
+    state.currentImageData = imageData;
+    state.undoStack = [];
+    state.redoStack = [];
+    state.scale = DEFAULT_SCALE;
+    state.transparentPixelCount = 0;
+
+    updateCanvasDisplaySize();
+    renderCanvas();
+    updateZoomDisplay();
+    refreshTransparentPixelInfo();
+    showCanvas();
+    updateControlsAvailability();
+    updateUndoRedoButtons();
+    updateStatusBarForImage();
+
+    const totalPixels = width * height;
+    if (totalPixels > LARGE_IMAGE_WARNING_PIXELS) {
+      setStatusMessage('대용량 이미지(' + formatNumber(totalPixels) + '픽셀)입니다. 처리 속도가 느려질 수 있습니다.', 'warning');
+    } else {
+      setStatusMessage('이미지를 불러왔습니다.', 'info');
+    }
+  }
+
+  /** 파일명 뒤에 "_transparent"를 붙여 저장용 파일명을 만든다. */
+  function buildOutputFileName(originalName) {
+    const name = originalName || 'image.png';
+    const dotIndex = name.lastIndexOf('.');
+    const base = dotIndex === -1 ? name : name.substring(0, dotIndex);
+    return base + '_transparent.png';
+  }
+
+  /** Blob을 파일로 다운로드한다 (앵커 요소를 통한 표준 브라우저 다운로드). */
+  function triggerDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  /** 캔버스의 기본 PNG 인코딩을 사용하는 대체 저장 경로.
+   *  자체 인코더가 예기치 않게 실패했을 때만 사용되는 안전망이며,
+   *  이 경로는 투명(Alpha=0) 픽셀의 RGB 값이 보존되지 않을 수 있다는
+   *  브라우저 공통의 한계를 가진다. toBlob이 비동기이므로 완료 콜백을
+   *  받아 처리 중 상태 해제 타이밍을 정확히 맞춘다. */
+  function saveViaCanvasFallback(outputName, onComplete) {
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = state.width;
+    exportCanvas.height = state.height;
+    const exportCtx = exportCanvas.getContext('2d');
+    exportCtx.putImageData(state.currentImageData, 0, 0);
+
+    exportCanvas.toBlob(function (blob) {
+      if (!blob) {
+        setStatusMessage('PNG 파일을 저장하는 중 오류가 발생했습니다.', 'error');
+      } else {
+        triggerDownload(blob, outputName);
+        setStatusMessage(outputName + ' 파일로 저장했습니다.', 'info');
+      }
+      if (onComplete) onComplete();
+    }, 'image/png');
+  }
+
+  /** 현재 편집 중인 이미지를 PNG로 저장한다 (체크무늬 배경은 제외, 투명 영역의 RGB 값도 그대로 보존). */
+  function savePng() {
+    if (state.isProcessing || !state.currentImageData) return;
+
+    const outputName = buildOutputFileName(state.fileName);
+
+    // PNG 압축 인코딩은 대용량 이미지에서 다소 시간이 걸릴 수 있으므로,
+    // 매직완드 연산과 동일하게 "처리 중" 표시가 실제로 화면에 그려질
+    // 기회를 준 뒤에 실행한다.
+    beginProcessing();
+    runAfterPaint(function () {
+      try {
+        const pngBytes = encodePngFromImageData(state.currentImageData);
+        const blob = new Blob([pngBytes], { type: 'image/png' });
+        triggerDownload(blob, outputName);
+        setStatusMessage(outputName + ' 파일로 저장했습니다.', 'info');
+        endProcessing();
+      } catch (err) {
+        console.error('[PNG 인코딩 오류 - 대체 경로로 저장 시도]', err);
+        // toBlob()은 콜백 기반 비동기 함수이므로, 그 완료 시점에 맞춰
+        // endProcessing을 호출해야 처리 중 표시가 실제 완료 전에 사라지지 않는다.
+        saveViaCanvasFallback(outputName, endProcessing);
+      }
+    });
+  }
+
+  /* ========================================================================
+     9. UI 상태 / 메시지 표시 함수
+     ======================================================================== */
+
+  function showCanvas() {
+    dom.emptyState.hidden = true;
+    dom.canvasViewport.hidden = false;
+  }
+
+  function showEmptyState() {
+    dom.emptyState.hidden = false;
+    dom.canvasViewport.hidden = true;
+  }
+
+  function beginProcessing() {
+    state.isProcessing = true;
+    dom.processingOverlay.hidden = false;
+    updateControlsAvailability();
+  }
+
+  function endProcessing() {
+    state.isProcessing = false;
+    dom.processingOverlay.hidden = true;
+    updateControlsAvailability();
+  }
+
+  /** 이미지 로드 여부/처리 중 여부에 따라 툴바 컨트롤의 활성화 상태를 갱신한다. */
+  function updateControlsAvailability() {
+    const hasImage = !!state.currentImageData;
+    const disabled = !hasImage || state.isProcessing;
+
+    dom.saveBtn.disabled = disabled;
+    dom.resetBtn.disabled = disabled;
+    dom.zoomInBtn.disabled = !hasImage;
+    dom.zoomOutBtn.disabled = !hasImage;
+    dom.fitBtn.disabled = !hasImage;
+    dom.toleranceSlider.disabled = !hasImage;
+    dom.contiguousCheckbox.disabled = !hasImage;
+
+    updateUndoRedoButtons();
+  }
+
+  function updateStatusBarForImage() {
+    dom.statusFileName.textContent = state.fileName;
+    dom.statusDimensions.textContent = state.width + ' × ' + state.height + 'px';
+    updateZoomDisplay();
+  }
+
+  /** 이미지 정보(전체/투명 픽셀 수)를 계산해 상태 표시줄 툴팁에 반영한다. (선택 기능: 이미지 정보 표시) */
+  function refreshTransparentPixelInfo() {
+    state.transparentPixelCount = countTransparentPixels(state.currentImageData);
+    const total = state.width * state.height;
+    const percent = total > 0 ? ((state.transparentPixelCount / total) * 100).toFixed(1) : '0.0';
+    dom.statusDimensions.title =
+      '전체 픽셀 수: ' + formatNumber(total) + ' · 투명 픽셀 수: ' + formatNumber(state.transparentPixelCount) + ' (' + percent + '%)';
+  }
+
+  function countTransparentPixels(imageData) {
+    const data = imageData.data;
+    const totalPixels = data.length / 4;
+    let count = 0;
+    for (let i = 0; i < totalPixels; i++) {
+      if (data[i * 4 + 3] === 0) count++;
+    }
+    return count;
+  }
+
+  /**
+   * 하단 상태 표시줄에 메시지를 표시한다.
+   * level: 'info' | 'warning' | 'error'
+   * 'error' 수준의 메시지는 상태 표시줄뿐 아니라 화면 내 오류 배너와
+   * 콘솔(console.error)에도 함께 기록되어 눈에 잘 띄도록 한다.
+   */
+  function setStatusMessage(text, level) {
+    level = level || 'info';
+    dom.statusMessage.textContent = text;
+    dom.statusMessage.classList.remove('status-info', 'status-warning', 'status-error');
+    dom.statusMessage.classList.add('status-' + level);
+
+    if (level === 'error') {
+      console.error('[PNG 배경 지우개]', text);
+      showErrorBanner(text);
+    }
+  }
+
+  function showErrorBanner(message) {
+    dom.errorBannerText.textContent = message;
+    dom.errorBanner.hidden = false;
+    clearTimeout(errorBannerTimer);
+    errorBannerTimer = setTimeout(function () {
+      dom.errorBanner.hidden = true;
+    }, ERROR_BANNER_DURATION_MS);
+  }
+
+  function hideErrorBanner() {
+    dom.errorBanner.hidden = true;
+    clearTimeout(errorBannerTimer);
+  }
+
+  /* -------- 커스텀 확인 모달 (예: 초기화 전 확인) -------- */
+
+  function showConfirmModal(message, onConfirm) {
+    dom.modalMessage.textContent = message;
+    dom.modalOverlay.hidden = false;
+    pendingConfirmAction = onConfirm;
+    dom.modalConfirmBtn.focus();
+  }
+
+  function hideConfirmModal() {
+    dom.modalOverlay.hidden = true;
+    pendingConfirmAction = null;
+  }
+
+  function handleModalConfirm() {
+    const action = pendingConfirmAction;
+    hideConfirmModal();
+    if (action) action();
+  }
+
+  function handleModalOverlayClick(event) {
+    if (event.target === dom.modalOverlay) hideConfirmModal();
+  }
+
+  /* ========================================================================
+     10. 이벤트 처리 / 초기화
+     ======================================================================== */
+
+  function cacheDom() {
+    dom.openBtn = document.getElementById('openBtn');
+    dom.saveBtn = document.getElementById('saveBtn');
+    dom.undoBtn = document.getElementById('undoBtn');
+    dom.redoBtn = document.getElementById('redoBtn');
+    dom.resetBtn = document.getElementById('resetBtn');
+    dom.toleranceSlider = document.getElementById('toleranceSlider');
+    dom.toleranceValue = document.getElementById('toleranceValue');
+    dom.contiguousCheckbox = document.getElementById('contiguousCheckbox');
+    dom.zoomOutBtn = document.getElementById('zoomOutBtn');
+    dom.zoomInBtn = document.getElementById('zoomInBtn');
+    dom.zoomValue = document.getElementById('zoomValue');
+    dom.fitBtn = document.getElementById('fitBtn');
+
+    dom.canvasArea = document.getElementById('canvasArea');
+    dom.canvasViewport = document.getElementById('canvasViewport');
+    dom.mainCanvas = document.getElementById('mainCanvas');
+    dom.canvasContext = dom.mainCanvas.getContext('2d', { willReadFrequently: true });
+    dom.emptyState = document.getElementById('emptyState');
+    dom.emptyStateOpenBtn = document.getElementById('emptyStateOpenBtn');
+    dom.processingOverlay = document.getElementById('processingOverlay');
+    dom.errorBanner = document.getElementById('errorBanner');
+    dom.errorBannerText = document.getElementById('errorBannerText');
+    dom.errorBannerClose = document.getElementById('errorBannerClose');
+
+    dom.statusFileName = document.getElementById('statusFileName');
+    dom.statusDimensions = document.getElementById('statusDimensions');
+    dom.statusZoom = document.getElementById('statusZoom');
+    dom.statusMessage = document.getElementById('statusMessage');
+
+    dom.modalOverlay = document.getElementById('modalOverlay');
+    dom.modalMessage = document.getElementById('modalMessage');
+    dom.modalConfirmBtn = document.getElementById('modalConfirmBtn');
+    dom.modalCancelBtn = document.getElementById('modalCancelBtn');
+
+    dom.fileInput = document.getElementById('fileInput');
+  }
+
+  function handleToleranceChange(event) {
+    const value = clamp(parseInt(event.target.value, 10) || 0, 0, 100);
+    state.tolerance = value;
+    dom.toleranceValue.textContent = String(value);
+  }
+
+  function handleContiguousChange(event) {
+    state.contiguous = event.target.checked;
+  }
+
+  function handleCanvasClick(event) {
+    if (!state.currentImageData || state.isProcessing) return;
+    const coords = getImageCoordsFromClientPoint(event.clientX, event.clientY);
+    if (!coords) return;
+    performMagicWandAt(coords.x, coords.y);
+  }
+
+  function handleDragEnter(event) {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    dragCounter++;
+    dom.canvasArea.classList.add('drag-over');
+  }
+
+  function handleDragOver(event) {
+    if (!isFileDrag(event)) return;
+    event.preventDefault(); // drop을 허용하려면 dragover에서도 preventDefault 필요
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDragLeave(event) {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) {
+      dom.canvasArea.classList.remove('drag-over');
+    }
+  }
+
+  function handleDrop(event) {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    dragCounter = 0;
+    dom.canvasArea.classList.remove('drag-over');
+    const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+    if (file) {
+      loadPngFile(file);
+    } else {
+      setStatusMessage('파일을 확인할 수 없습니다.', 'warning');
+    }
+  }
+
+  function isFileDrag(event) {
+    return event.dataTransfer && Array.prototype.indexOf.call(event.dataTransfer.types || [], 'Files') !== -1;
+  }
+
+  function handleViewportWheel(event) {
+    if (!state.currentImageData) return;
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      if (event.deltaY < 0) {
+        zoomIn(event.clientX, event.clientY);
+      } else if (event.deltaY > 0) {
+        zoomOut(event.clientX, event.clientY);
+      }
+    } else if (event.shiftKey) {
+      event.preventDefault();
+      dom.canvasViewport.scrollLeft += event.deltaY;
+    }
+    // 일반 휠: 기본 세로 스크롤 동작을 그대로 허용한다 (별도 처리 없음).
+  }
+
+  function handleGlobalKeyDown(event) {
+    if (event.key === 'Escape' && !dom.modalOverlay.hidden) {
+      hideConfirmModal();
+      return;
+    }
+
+    const ctrlOrCmd = event.ctrlKey || event.metaKey;
+    if (!ctrlOrCmd) return;
+
+    const key = event.key.toLowerCase();
+    if (key === 'o') {
+      event.preventDefault();
+      openFileDialog();
+    } else if (key === 's') {
+      event.preventDefault();
+      savePng();
+    } else if (key === 'z') {
+      event.preventDefault();
+      undo();
+    } else if (key === 'y') {
+      event.preventDefault();
+      redo();
+    }
+  }
+
+  function bindEventListeners() {
+    dom.openBtn.addEventListener('click', openFileDialog);
+    dom.emptyStateOpenBtn.addEventListener('click', openFileDialog);
+    dom.fileInput.addEventListener('change', handleFileInputChange);
+
+    dom.saveBtn.addEventListener('click', savePng);
+    dom.undoBtn.addEventListener('click', undo);
+    dom.redoBtn.addEventListener('click', redo);
+    dom.resetBtn.addEventListener('click', resetToOriginal);
+
+    dom.toleranceSlider.addEventListener('input', handleToleranceChange);
+    dom.contiguousCheckbox.addEventListener('change', handleContiguousChange);
+
+    dom.zoomInBtn.addEventListener('click', function () { zoomIn(); });
+    dom.zoomOutBtn.addEventListener('click', function () { zoomOut(); });
+    dom.fitBtn.addEventListener('click', fitToScreen);
+
+    dom.mainCanvas.addEventListener('click', handleCanvasClick);
+    dom.canvasViewport.addEventListener('wheel', handleViewportWheel, { passive: false });
+
+    // 드래그 앤 드롭은 앱 전체(문서)에서 받아들이되, 시각적 강조는 캔버스 영역에 표시한다.
+    document.addEventListener('dragenter', handleDragEnter);
+    document.addEventListener('dragover', handleDragOver);
+    document.addEventListener('dragleave', handleDragLeave);
+    document.addEventListener('drop', handleDrop);
+
+    dom.modalConfirmBtn.addEventListener('click', handleModalConfirm);
+    dom.modalCancelBtn.addEventListener('click', hideConfirmModal);
+    dom.modalOverlay.addEventListener('click', handleModalOverlayClick);
+
+    dom.errorBannerClose.addEventListener('click', hideErrorBanner);
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+  }
+
+  function init() {
+    cacheDom();
+    bindEventListeners();
+    updateControlsAvailability();
+    showEmptyState();
+
+    dom.statusFileName.textContent = '';
+    dom.statusDimensions.textContent = '';
+    dom.statusZoom.textContent = '';
+    setStatusMessage('PNG 파일을 열거나 이곳으로 드래그하세요.', 'info');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+</script>
+</body>
+</html>
