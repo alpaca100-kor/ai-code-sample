@@ -1,22 +1,334 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="AI Sample Code 프로젝트 모음">
-<title>AI Sample Code</title>
-<style>
-:root{--bg:#f5f7fb;--surface:rgba(255,255,255,.8);--text:#182033;--muted:#697386;--border:rgba(24,32,51,.08);--accent:#635bff;--soft:rgba(99,91,255,.09);--shadow:0 18px 50px rgba(31,41,65,.08)}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);background:radial-gradient(circle at 8% 5%,rgba(99,91,255,.13),transparent 27%),radial-gradient(circle at 92% 8%,rgba(139,92,246,.11),transparent 25%),var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;line-height:1.6}a{text-decoration:none;color:inherit}.container{width:min(1120px,calc(100% - 40px));margin:auto}.hero-wrap{padding:68px 0 40px}.hero{position:relative;overflow:hidden;padding:56px;border:1px solid rgba(255,255,255,.85);border-radius:28px;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(255,255,255,.68));box-shadow:var(--shadow);backdrop-filter:blur(18px)}.hero:before{content:"";position:absolute;width:260px;height:260px;top:-145px;right:-70px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b7cff);opacity:.13;filter:blur(10px)}.eyebrow{display:inline-flex;gap:8px;align-items:center;margin-bottom:16px;padding:7px 12px;border-radius:999px;color:var(--accent);background:var(--soft);font-size:.75rem;font-weight:800;letter-spacing:.08em}.eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}h1{position:relative;margin:0;font-size:clamp(2.4rem,6vw,4.4rem);line-height:1.02;letter-spacing:-.055em}.hero-description{position:relative;max-width:700px;margin:20px 0 0;color:var(--muted)}main{padding-bottom:70px}.category-section{margin-top:34px}.category-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:16px}.category-code{display:block;margin-bottom:4px;color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.08em}.category-heading h2{margin:0;font-size:1.45rem;line-height:1.25}.category-heading p{margin:6px 0 0;color:var(--muted);font-size:.9rem}.category-count{flex:none;padding:6px 10px;border-radius:999px;color:var(--muted);background:rgba(24,32,51,.05);font-size:.72rem;font-weight:800}.project-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.project-card{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:82px;padding:18px 18px 18px 20px;gap:18px;overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 8px 26px rgba(31,41,65,.045);transition:.18s}.project-card:hover{transform:translateY(-4px);border-color:rgba(99,91,255,.22);box-shadow:0 22px 55px rgba(31,41,65,.14)}.project-name{overflow:hidden;font-size:.94rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.project-arrow{display:inline-flex;flex:none;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;color:var(--accent);background:var(--soft);transition:.18s}.project-card:hover .project-arrow{transform:translateX(4px);color:#fff;background:var(--accent)}footer{padding:28px 0 42px;color:var(--muted);text-align:center;font-size:.78rem}@media(max-width:860px){.hero{padding:40px 32px}.project-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.container{width:calc(100% - 24px)}.hero{padding:32px 24px;border-radius:22px}.project-grid{grid-template-columns:1fr}.category-heading{align-items:center}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Sample Code - AI 관련 웹 애플리케이션과 샘플 코드를 한곳에서 제공합니다.">
+  <title>AI Sample Code</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --surface: rgba(255,255,255,.82);
+      --text: #172033;
+      --muted: #697386;
+      --border: rgba(23,32,51,.08);
+      --shadow: 0 18px 50px rgba(35,45,70,.09);
+      --shadow-hover: 0 22px 60px rgba(35,45,70,.15);
+      --accent: #635bff;
+      --accent-2: #8b5cf6;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(99,91,255,.12), transparent 28%),
+        radial-gradient(circle at 90% 15%, rgba(139,92,246,.10), transparent 25%),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans KR", "Malgun Gothic", sans-serif;
+      line-height: 1.6;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    header { padding: 72px 0 44px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: 52px;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(255,255,255,.9), rgba(255,255,255,.68));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      top: -120px;
+      right: -80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      opacity: .12;
+      filter: blur(8px);
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: var(--accent);
+      background: rgba(99,91,255,.09);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .eyebrow::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(99,91,255,.1);
+    }
+    h1 {
+      position: relative;
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+    }
+    .hero-description {
+      position: relative;
+      max-width: 680px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+    main { padding: 0 0 80px; }
+    .section { margin-top: 34px; }
+    .section-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 16px;
+    }
+    h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }
+    .section-description { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+    .count {
+      flex: 0 0 auto;
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(23,32,51,.05);
+      font-size: .78rem;
+      font-weight: 700;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .card {
+      position: relative;
+      display: flex;
+      min-height: 132px;
+      overflow: hidden;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: 0 8px 28px rgba(35,45,70,.055);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }
+    .card::after {
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      right: -35px;
+      bottom: -40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(99,91,255,.2);
+      box-shadow: var(--shadow-hover);
+    }
+    .card:hover::after { opacity: .08; }
+    .card-title {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -.015em;
+    }
+    .card-footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 700;
+    }
+    .arrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(99,91,255,.08);
+      transition: transform 180ms ease, background 180ms ease;
+    }
+    .card:hover .arrow {
+      transform: translateX(3px);
+      background: rgba(99,91,255,.14);
+    }
+    footer {
+      padding: 26px 0 42px;
+      color: var(--muted);
+      text-align: center;
+      font-size: .82rem;
+    }
+    a:focus-visible {
+      outline: 3px solid rgba(99,91,255,.35);
+      outline-offset: 4px;
+      border-radius: 8px;
+    }
+    @media (max-width: 820px) {
+      header { padding-top: 32px; }
+      .hero { padding: 34px 28px; }
+      .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .container { width: min(100% - 24px, 1120px); }
+      header { padding-bottom: 26px; }
+      .hero { padding: 30px 22px; border-radius: 20px; }
+      h1 { font-size: 2.35rem; }
+      .hero-description { font-size: .94rem; }
+      .section { margin-top: 28px; }
+      .section-header { align-items: center; }
+      .card-grid { grid-template-columns: 1fr; }
+      .card { min-height: 118px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-<header class="hero-wrap"><div class="hero"><div class="eyebrow">AI SAMPLE CODE</div><h1>AI Sample Code</h1><p class="hero-description">AI를 활용하여 제작한 다양한 웹 애플리케이션과 샘플 코드를 한곳에서 확인할 수 있습니다.</p></div></header>
-<main>
-<section class="category-section" data-category="AIE"><div class="category-heading"><div><span class="category-code">AIE</span><h2>AI Experiment</h2><p>AI를 활용하여 제작한 다양한 실험 및 개발 프로젝트입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: AIE START --><!-- AUTO-GENERATED: AIE END --></div></section>
-<section class="category-section" data-category="MD-VE"><div class="category-heading"><div><span class="category-code">MD-VE</span><h2>Markdown Viewer &amp; Editor</h2><p>마크다운 문서를 편리하게 확인하고 편집할 수 있는 도구입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: MD-VE START --><!-- AUTO-GENERATED: MD-VE END --></div></section>
-<section class="category-section" data-category="PNG"><div class="category-heading"><div><span class="category-code">PNG</span><h2>PNG Background Eraser</h2><p>PNG 이미지의 배경을 제거할 수 있는 웹 애플리케이션입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: PNG START --><!-- AUTO-GENERATED: PNG END --></div></section>
-<!-- NEW CATEGORIES ARE INSERTED ABOVE THIS LINE -->
-</main><footer>AI Sample Code · All projects</footer></div>
-</body></html>
+  <div class="container">
+    <header>
+      <div class="hero">
+        <div class="eyebrow">AI Sample Code</div>
+        <h1>AI Sample Code</h1>
+        <p class="hero-description">
+          AI를 활용해 제작한 웹 애플리케이션과 샘플 코드를 한곳에서 확인할 수 있습니다.
+          원하는 프로젝트를 선택하여 바로 실행해 보세요.
+        </p>
+      </div>
+    </header>
+    <main>
+      <section class="section" aria-labelledby="aie-title">
+        <div class="section-header">
+          <div>
+            <h2 id="aie-title">AI Experiment</h2>
+            <p class="section-description">AI를 활용한 다양한 실험 및 개발 프로젝트</p>
+          </div>
+          <span class="count">2 Projects</span>
+        </div>
+
+        <div class="card-grid">
+          <a class="card" href="AIE/Claude-AIE.html">
+            <h3 class="card-title">Claude-AIE</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+          <a class="card" href="AIE/Gemini-AIE.html">
+            <h3 class="card-title">Gemini-AIE</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="md-ve-title">
+        <div class="section-header">
+          <div>
+            <h2 id="md-ve-title">Markdown Viewer &amp; Editor</h2>
+            <p class="section-description">마크다운 문서를 편리하게 확인하고 편집하는 도구</p>
+          </div>
+          <span class="count">3 Projects</span>
+        </div>
+
+        <div class="card-grid">
+          <a class="card" href="MD-VE/ChatGPT-MD-Viewer&amp;Editor.html">
+            <h3 class="card-title">ChatGPT-MD-Viewer&amp;Editor</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+          <a class="card" href="MD-VE/Claude-MD-Viewer&amp;Editor.html">
+            <h3 class="card-title">Claude-MD-Viewer&amp;Editor</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+          <a class="card" href="MD-VE/Gemini-MD-Viewer&amp;Editor.html">
+            <h3 class="card-title">Gemini-MD-Viewer&amp;Editor</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="png-title">
+        <div class="section-header">
+          <div>
+            <h2 id="png-title">PNG Background Eraser</h2>
+            <p class="section-description">PNG 이미지의 배경을 제거하는 웹 애플리케이션</p>
+          </div>
+          <span class="count">3 Projects</span>
+        </div>
+
+        <div class="card-grid">
+          <a class="card" href="PNG/ChatGPT-PNG-Background-Eraser.html">
+            <h3 class="card-title">ChatGPT-PNG-Background-Eraser</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+          <a class="card" href="PNG/Claude-PNG-Background-Eraser.html">
+            <h3 class="card-title">Claude-PNG-Background-Eraser</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+          <a class="card" href="PNG/Gemini-PNG-Background-Eraser.html">
+            <h3 class="card-title">Gemini-PNG-Background-Eraser</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>
+        </div>
+      </section>
+    </main>
+    <footer>AI Sample Code · All projects</footer>
+  </div>
+</body>
+</html>
