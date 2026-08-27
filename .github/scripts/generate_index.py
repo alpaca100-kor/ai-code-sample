@@ -8,8 +8,8 @@ output = root / "index.html"
 # Any new top-level folder containing HTML files is also detected.
 category_names = {
     "AIE": (
-        "AI Experiment",
-        "AI를 활용한 다양한 실험 및 개발 프로젝트",
+        "Alpaca Image Editor",
+        "이미지 편집기(병합, 회전, 자르기 등)",
     ),
     "MD-VE": (
         "Markdown Viewer & Editor",
