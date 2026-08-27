@@ -1,0 +1,337 @@
+from pathlib import Path
+from html import escape
+
+root = Path(".")
+output = root / "index.html"
+
+# Existing folders get friendly names.
+# Any new top-level folder containing HTML files is also detected.
+category_names = {
+    "AIE": (
+        "AI Experiment",
+        "AI를 활용한 다양한 실험 및 개발 프로젝트",
+    ),
+    "MD-VE": (
+        "Markdown Viewer & Editor",
+        "마크다운 문서를 편리하게 확인하고 편집하는 도구",
+    ),
+    "PNG": (
+        "PNG Background Eraser",
+        "PNG 이미지의 배경을 제거하는 웹 애플리케이션",
+    ),
+}
+
+categories = []
+
+for folder in sorted(root.iterdir(), key=lambda p: p.name.lower()):
+    if not folder.is_dir() or folder.name.startswith("."):
+        continue
+
+    files = sorted(folder.glob("*.html"))
+
+    if not files:
+        continue
+
+    title, description = category_names.get(
+        folder.name,
+        (
+            folder.name,
+            f"{folder.name} 관련 HTML 프로젝트",
+        ),
+    )
+
+    categories.append(
+        (folder.name, title, description, files)
+    )
+
+sections = []
+
+for folder, title, description, files in categories:
+    cards = []
+
+    for path in files:
+        relative = path.as_posix()
+        name = path.stem
+
+        cards.append(
+            f'''          <a class="card" href="{escape(relative, quote=True)}">
+            <h3 class="card-title">{escape(name)}</h3>
+            <div class="card-footer">
+              <span>Open Project</span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </div>
+          </a>'''
+        )
+
+    section_id = "".join(
+        c.lower() if c.isalnum() else "-"
+        for c in folder
+    ).strip("-")
+
+    project_word = (
+        "Project" if len(files) == 1 else "Projects"
+    )
+
+    sections.append(
+        f'''      <section class="section" aria-labelledby="{section_id}-title">
+        <div class="section-header">
+          <div>
+            <h2 id="{section_id}-title">{escape(title)}</h2>
+            <p class="section-description">{escape(description)}</p>
+          </div>
+          <span class="count">{len(files)} {project_word}</span>
+        </div>
+
+        <div class="card-grid">
+{chr(10).join(cards)}
+        </div>
+      </section>'''
+    )
+
+sections_html = "\n\n".join(sections)
+
+template = f'''<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AI Sample Code - AI 관련 웹 애플리케이션과 샘플 코드를 한곳에서 제공합니다.">
+  <title>AI Sample Code</title>
+  <style>
+    :root {{
+      --bg: #f5f7fb;
+      --surface: rgba(255,255,255,.82);
+      --text: #172033;
+      --muted: #697386;
+      --border: rgba(23,32,51,.08);
+      --shadow: 0 18px 50px rgba(35,45,70,.09);
+      --shadow-hover: 0 22px 60px rgba(35,45,70,.15);
+      --accent: #635bff;
+      --accent-2: #8b5cf6;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+    }}
+    * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, rgba(99,91,255,.12), transparent 28%),
+        radial-gradient(circle at 90% 15%, rgba(139,92,246,.10), transparent 25%),
+        var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans KR", "Malgun Gothic", sans-serif;
+      line-height: 1.6;
+    }}
+    a {{ color: inherit; text-decoration: none; }}
+    .container {{ width: min(1120px, calc(100% - 40px)); margin: 0 auto; }}
+    header {{ padding: 72px 0 44px; }}
+    .hero {{
+      position: relative;
+      overflow: hidden;
+      padding: 52px;
+      border: 1px solid rgba(255,255,255,.8);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, rgba(255,255,255,.9), rgba(255,255,255,.68));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }}
+    .hero::before {{
+      content: "";
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      top: -120px;
+      right: -80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      opacity: .12;
+      filter: blur(8px);
+    }}
+    .eyebrow {{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      color: var(--accent);
+      background: rgba(99,91,255,.09);
+      font-size: .78rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }}
+    .eyebrow::before {{
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 0 4px rgba(99,91,255,.1);
+    }}
+    h1 {{
+      position: relative;
+      margin: 0;
+      font-size: clamp(2.2rem, 5vw, 4rem);
+      line-height: 1.05;
+      letter-spacing: -.045em;
+    }}
+    .hero-description {{
+      position: relative;
+      max-width: 680px;
+      margin: 20px 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }}
+    main {{ padding: 0 0 80px; }}
+    .section {{ margin-top: 34px; }}
+    .section-header {{
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 16px;
+    }}
+    h2 {{ margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }}
+    .section-description {{ margin: 4px 0 0; color: var(--muted); font-size: .9rem; }}
+    .count {{
+      flex: 0 0 auto;
+      padding: 5px 10px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(23,32,51,.05);
+      font-size: .78rem;
+      font-weight: 700;
+    }}
+    .card-grid {{
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }}
+    .card {{
+      position: relative;
+      display: flex;
+      min-height: 132px;
+      overflow: hidden;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 22px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: 0 8px 28px rgba(35,45,70,.055);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+    }}
+    .card::after {{
+      content: "";
+      position: absolute;
+      width: 90px;
+      height: 90px;
+      right: -35px;
+      bottom: -40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      opacity: 0;
+      transition: opacity 180ms ease;
+    }}
+    .card:hover {{
+      transform: translateY(-5px);
+      border-color: rgba(99,91,255,.2);
+      box-shadow: var(--shadow-hover);
+    }}
+    .card:hover::after {{ opacity: .08; }}
+    .card-title {{
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: -.015em;
+    }}
+    .card-footer {{
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 20px;
+      color: var(--accent);
+      font-size: .82rem;
+      font-weight: 700;
+    }}
+    .arrow {{
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(99,91,255,.08);
+      transition: transform 180ms ease, background 180ms ease;
+    }}
+    .card:hover .arrow {{
+      transform: translateX(3px);
+      background: rgba(99,91,255,.14);
+    }}
+    footer {{
+      padding: 26px 0 42px;
+      color: var(--muted);
+      text-align: center;
+      font-size: .82rem;
+    }}
+    a:focus-visible {{
+      outline: 3px solid rgba(99,91,255,.35);
+      outline-offset: 4px;
+      border-radius: 8px;
+    }}
+    @media (max-width: 820px) {{
+      header {{ padding-top: 32px; }}
+      .hero {{ padding: 34px 28px; }}
+      .card-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    }}
+    @media (max-width: 560px) {{
+      .container {{ width: min(100% - 24px, 1120px); }}
+      header {{ padding-bottom: 26px; }}
+      .hero {{ padding: 30px 22px; border-radius: 20px; }}
+      h1 {{ font-size: 2.35rem; }}
+      .hero-description {{ font-size: .94rem; }}
+      .section {{ margin-top: 28px; }}
+      .section-header {{ align-items: center; }}
+      .card-grid {{ grid-template-columns: 1fr; }}
+      .card {{ min-height: 118px; }}
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      html {{ scroll-behavior: auto; }}
+      *, *::before, *::after {{ transition: none !important; }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="hero">
+        <div class="eyebrow">AI Sample Code</div>
+        <h1>AI Sample Code</h1>
+        <p class="hero-description">
+          AI를 활용해 제작한 웹 애플리케이션과 샘플 코드를 한곳에서 확인할 수 있습니다.
+          원하는 프로젝트를 선택하여 바로 실행해 보세요.
+        </p>
+      </div>
+    </header>
+    <main>
+{sections_html}
+    </main>
+    <footer>AI Sample Code · All projects</footer>
+  </div>
+</body>
+</html>
+'''
+
+output.write_text(template, encoding="utf-8")
+print(f"Generated {output}")
