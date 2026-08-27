@@ -1,31 +1,22 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Sample Code</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AI Sample Code 프로젝트 모음">
+<title>AI Sample Code</title>
+<style>
+:root{--bg:#f5f7fb;--surface:rgba(255,255,255,.8);--text:#182033;--muted:#697386;--border:rgba(24,32,51,.08);--accent:#635bff;--soft:rgba(99,91,255,.09);--shadow:0 18px 50px rgba(31,41,65,.08)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;min-height:100vh;color:var(--text);background:radial-gradient(circle at 8% 5%,rgba(99,91,255,.13),transparent 27%),radial-gradient(circle at 92% 8%,rgba(139,92,246,.11),transparent 25%),var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;line-height:1.6}a{text-decoration:none;color:inherit}.container{width:min(1120px,calc(100% - 40px));margin:auto}.hero-wrap{padding:68px 0 40px}.hero{position:relative;overflow:hidden;padding:56px;border:1px solid rgba(255,255,255,.85);border-radius:28px;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(255,255,255,.68));box-shadow:var(--shadow);backdrop-filter:blur(18px)}.hero:before{content:"";position:absolute;width:260px;height:260px;top:-145px;right:-70px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#9b7cff);opacity:.13;filter:blur(10px)}.eyebrow{display:inline-flex;gap:8px;align-items:center;margin-bottom:16px;padding:7px 12px;border-radius:999px;color:var(--accent);background:var(--soft);font-size:.75rem;font-weight:800;letter-spacing:.08em}.eyebrow:before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}h1{position:relative;margin:0;font-size:clamp(2.4rem,6vw,4.4rem);line-height:1.02;letter-spacing:-.055em}.hero-description{position:relative;max-width:700px;margin:20px 0 0;color:var(--muted)}main{padding-bottom:70px}.category-section{margin-top:34px}.category-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:16px}.category-code{display:block;margin-bottom:4px;color:var(--accent);font-size:.72rem;font-weight:800;letter-spacing:.08em}.category-heading h2{margin:0;font-size:1.45rem;line-height:1.25}.category-heading p{margin:6px 0 0;color:var(--muted);font-size:.9rem}.category-count{flex:none;padding:6px 10px;border-radius:999px;color:var(--muted);background:rgba(24,32,51,.05);font-size:.72rem;font-weight:800}.project-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.project-card{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:82px;padding:18px 18px 18px 20px;gap:18px;overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 8px 26px rgba(31,41,65,.045);transition:.18s}.project-card:hover{transform:translateY(-4px);border-color:rgba(99,91,255,.22);box-shadow:0 22px 55px rgba(31,41,65,.14)}.project-name{overflow:hidden;font-size:.94rem;font-weight:700;text-overflow:ellipsis;white-space:nowrap}.project-arrow{display:inline-flex;flex:none;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;color:var(--accent);background:var(--soft);transition:.18s}.project-card:hover .project-arrow{transform:translateX(4px);color:#fff;background:var(--accent)}footer{padding:28px 0 42px;color:var(--muted);text-align:center;font-size:.78rem}@media(max-width:860px){.hero{padding:40px 32px}.project-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.container{width:calc(100% - 24px)}.hero{padding:32px 24px;border-radius:22px}.project-grid{grid-template-columns:1fr}.category-heading{align-items:center}}
+</style>
 </head>
 <body>
-  <h1>AI Sample Code</h1>
-
-  <h2>AIE</h2>
-  <ul>
-    <li><a href="AIE/Claude-AIE.html">Claude-AIE</a></li>
-    <li><a href="AIE/Gemini-AIE.html">Gemini-AIE</a></li>
-  </ul>
-
-  <h2>MD-VE</h2>
-  <ul>
-    <li><a href="MD-VE/ChatGPT-MD-Viewer&amp;Editor.html">ChatGPT-MD-Viewer&amp;Editor</a></li>
-    <li><a href="MD-VE/Claude-MD-Viewer&amp;Editor.html">Claude-MD-Viewer&amp;Editor</a></li>
-    <li><a href="MD-VE/Gemini-MD-Viewer&amp;Editor.html">Gemini-MD-Viewer&amp;Editor</a></li>
-  </ul>
-
-  <h2>PNG</h2>
-  <ul>
-    <li><a href="PNG/ChatGPT-PNG-Background-Eraser.html">ChatGPT-PNG-Background-Eraser</a></li>
-    <li><a href="PNG/Claude-PNG-Background-Eraser.html">Claude-PNG-Background-Eraser</a></li>
-    <li><a href="PNG/Gemini-PNG-Background-Eraser.html">Gemini-PNG-Background-Eraser</a></li>
-  </ul>
-</body>
-</html>
+<div class="container">
+<header class="hero-wrap"><div class="hero"><div class="eyebrow">AI SAMPLE CODE</div><h1>AI Sample Code</h1><p class="hero-description">AI를 활용하여 제작한 다양한 웹 애플리케이션과 샘플 코드를 한곳에서 확인할 수 있습니다.</p></div></header>
+<main>
+<section class="category-section" data-category="AIE"><div class="category-heading"><div><span class="category-code">AIE</span><h2>AI Experiment</h2><p>AI를 활용하여 제작한 다양한 실험 및 개발 프로젝트입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: AIE START --><!-- AUTO-GENERATED: AIE END --></div></section>
+<section class="category-section" data-category="MD-VE"><div class="category-heading"><div><span class="category-code">MD-VE</span><h2>Markdown Viewer &amp; Editor</h2><p>마크다운 문서를 편리하게 확인하고 편집할 수 있는 도구입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: MD-VE START --><!-- AUTO-GENERATED: MD-VE END --></div></section>
+<section class="category-section" data-category="PNG"><div class="category-heading"><div><span class="category-code">PNG</span><h2>PNG Background Eraser</h2><p>PNG 이미지의 배경을 제거할 수 있는 웹 애플리케이션입니다.</p></div><span class="category-count">0 PROJECTS</span></div><div class="project-grid"><!-- AUTO-GENERATED: PNG START --><!-- AUTO-GENERATED: PNG END --></div></section>
+<!-- NEW CATEGORIES ARE INSERTED ABOVE THIS LINE -->
+</main><footer>AI Sample Code · All projects</footer></div>
+</body></html>
