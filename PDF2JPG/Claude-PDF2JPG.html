@@ -1,0 +1,2682 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>PDF → JPG 변환기</title>
+<meta name="description" content="브라우저에서 바로 PDF를 JPG로 변환하는 클라이언트 사이드 웹 유틸리티. 파일을 서버에 업로드하지 않습니다." />
+<style>
+  /* ==========================================================================
+     0. 디자인 토큰 (Design Tokens)
+     - Windows 11 Fluent 스타일을 기반으로 한 라이트/다크 테마 변수
+     ========================================================================== */
+  :root {
+    color-scheme: light;
+
+    /* 색상 - 표면 */
+    --bg: #f3f3f3;
+    --surface: #ffffff;
+    --surface-alt: #f8f8f8;
+    --surface-sunken: #f0f0f2;
+
+    /* 색상 - 테두리 */
+    --border: #e2e2e4;
+    --border-strong: #cfcfd2;
+
+    /* 색상 - 텍스트 */
+    --text: #1b1b1f;
+    --text-secondary: #5c5c62;
+    --text-tertiary: #8a8a91;
+    --text-on-accent: #ffffff;
+
+    /* 색상 - 브랜드 / 강조 */
+    --accent: #4f46e5;
+    --accent-hover: #4338ca;
+    --accent-active: #3730a3;
+    --accent-soft: #eef0fe;
+    --accent-soft-strong: #dfe1fc;
+
+    /* 색상 - 상태 */
+    --success: #0f7b47;
+    --success-soft: #e6f5ec;
+    --danger: #c42b1c;
+    --danger-soft: #fbe9e7;
+    --warning: #9a5b00;
+    --warning-soft: #fff2df;
+    --info: #005fb8;
+    --info-soft: #e5f1fc;
+
+    /* 그림자 */
+    --shadow-xs: 0 1px 2px rgba(15, 15, 20, 0.05);
+    --shadow-sm: 0 1px 3px rgba(15, 15, 20, 0.08), 0 1px 2px rgba(15, 15, 20, 0.04);
+    --shadow-md: 0 4px 14px rgba(15, 15, 20, 0.10);
+    --shadow-lg: 0 12px 32px rgba(15, 15, 20, 0.16);
+
+    /* 반경 */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 999px;
+
+    /* 폰트 */
+    --font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont,
+      "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    --font-mono: "Cascadia Mono", "Consolas", "D2Coding", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* 간격 */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 28px;
+    --space-7: 36px;
+
+    /* 트랜지션 */
+    --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+    --dur-fast: 120ms;
+    --dur-base: 200ms;
+  }
+
+  [data-theme="dark"] {
+    color-scheme: dark;
+
+    --bg: #1f1f22;
+    --surface: #29292d;
+    --surface-alt: #232326;
+    --surface-sunken: #1a1a1c;
+
+    --border: #3c3c41;
+    --border-strong: #4c4c52;
+
+    --text: #f2f2f4;
+    --text-secondary: #c2c2c8;
+    --text-tertiary: #8f8f97;
+    --text-on-accent: #ffffff;
+
+    --accent: #7c76f5;
+    --accent-hover: #948ef7;
+    --accent-active: #6a63e8;
+    --accent-soft: rgba(124, 118, 245, 0.16);
+    --accent-soft-strong: rgba(124, 118, 245, 0.26);
+
+    --success: #5fd393;
+    --success-soft: rgba(95, 211, 147, 0.14);
+    --danger: #ff9a90;
+    --danger-soft: rgba(255, 154, 144, 0.14);
+    --warning: #ffc971;
+    --warning-soft: rgba(255, 201, 113, 0.14);
+    --info: #7cc2ff;
+    --info-soft: rgba(124, 194, 255, 0.14);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.32), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.36);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.48);
+  }
+
+  /* ==========================================================================
+     1. 기본 리셋 및 베이스 스타일
+     ========================================================================== */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* 표준 hidden 속성이 항상 최우선으로 적용되도록 강제한다.
+     (.card, .btn 등 자체 display 값을 갖는 클래스와의 명시도 충돌을 방지) */
+  [hidden] { display: none !important; }
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-family);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition: background-color var(--dur-base) var(--ease), color var(--dur-base) var(--ease);
+  }
+  h1, h2, h3, p, ul, li { margin: 0; padding: 0; }
+  ul { list-style: none; }
+  button { font-family: inherit; }
+  input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+  img { max-width: 100%; display: block; }
+  svg { display: block; flex-shrink: 0; }
+  hr { border: none; border-top: 1px solid var(--border); margin: var(--space-4) 0; }
+
+  a { color: var(--accent); }
+
+  /* 포커스 표시 - 접근성 */
+  :focus { outline: none; }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* 스크롤바 (webkit) */
+  .scroll-thin::-webkit-scrollbar { width: 10px; height: 10px; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+  .scroll-thin::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: var(--radius-pill);
+    border: 2px solid var(--surface);
+  }
+  .scroll-thin::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+  .scroll-thin { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+  /* ==========================================================================
+     2. 레이아웃
+     ========================================================================== */
+  .app-shell {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--space-5) var(--space-4) var(--space-7);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .app-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  /* ==========================================================================
+     3. 헤더
+     ========================================================================== */
+  .app-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .app-header__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .app-header__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+  }
+
+  .app-header__logo {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(155deg, var(--accent) 0%, var(--accent-active) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .app-header__title {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .app-header__desc {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    max-width: 56ch;
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  }
+  .icon-btn:hover { background: var(--surface-alt); color: var(--text); border-color: var(--border-strong); }
+  .icon-btn:active { transform: scale(0.94); }
+
+  .icon-moon { display: none; }
+  [data-theme="dark"] .icon-sun { display: none; }
+  [data-theme="dark"] .icon-moon { display: block; }
+
+  /* ==========================================================================
+     4. 드롭존 (시그니처 요소)
+     ========================================================================== */
+  .dropzone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    text-align: center;
+    padding: var(--space-6) var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 1.5px dashed var(--border-strong);
+    background:
+      repeating-linear-gradient(135deg, transparent 0 18px, rgba(79, 70, 229, 0.025) 18px 36px),
+      var(--surface);
+    cursor: pointer;
+    transition: border-color var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease);
+  }
+  .dropzone:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+  .dropzone:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .dropzone.is-dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    transform: scale(1.005);
+    box-shadow: var(--shadow-md);
+  }
+  .dropzone.is-dragover .dropzone__icon svg { transform: translateY(-2px) scale(1.04); }
+
+  .dropzone__icon svg { transition: transform var(--dur-base) var(--ease); }
+
+  .dropzone__text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .dropzone__subtext {
+    font-size: 0.8125rem;
+    color: var(--text-tertiary);
+  }
+
+  /* ==========================================================================
+     5. 카드
+     ========================================================================== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    box-shadow: var(--shadow-xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .card__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .card__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.005em;
+  }
+
+  .card__title::before {
+    content: "";
+    display: inline-block;
+    width: 4px;
+    height: 13px;
+    border-radius: 2px;
+    background: var(--accent);
+    margin-right: var(--space-2);
+    transform: translateY(1px);
+  }
+
+  /* ==========================================================================
+     6. 버튼
+     ========================================================================== */
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+    user-select: none;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .btn svg { flex-shrink: 0; }
+
+  .btn--primary {
+    background: var(--surface);
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .btn--primary:hover:not(:disabled) { background: var(--surface-alt); border-color: var(--text-tertiary); }
+
+  .btn--accent {
+    background: var(--accent);
+    color: var(--text-on-accent);
+    box-shadow: var(--shadow-xs);
+  }
+  .btn--accent:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn--accent:active:not(:disabled) { background: var(--accent-active); }
+
+  .btn--secondary {
+    background: var(--surface-alt);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .btn--secondary:hover:not(:disabled) { background: var(--surface-sunken); border-color: var(--border-strong); }
+
+  .btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-secondary);
+  }
+  .btn--ghost:hover:not(:disabled) { background: var(--surface-alt); color: var(--text); }
+
+  .btn--outline-danger {
+    background: var(--surface);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .btn--outline-danger:hover:not(:disabled) { background: var(--danger-soft); }
+
+  .btn--lg { height: 46px; padding: 0 var(--space-5); font-size: 0.875rem; }
+  .btn--sm { height: 30px; padding: 0 var(--space-3); font-size: 0.75rem; }
+  .btn--full { width: 100%; }
+
+  /* ==========================================================================
+     7. 폼 컨트롤
+     ========================================================================== */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+  }
+
+  .field { display: flex; flex-direction: column; gap: var(--space-2); }
+  .field > label {
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .field--checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .field--checkbox > label { font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+
+  select, input[type="text"] {
+    height: 38px;
+    padding: 0 var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text);
+    transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  }
+  select:hover, input[type="text"]:hover { border-color: var(--text-tertiary); }
+  select:focus-visible, input[type="text"]:focus-visible {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  input[type="text"]:disabled, select:disabled {
+    background: var(--surface-sunken);
+    color: var(--text-tertiary);
+    cursor: not-allowed;
+  }
+  input[type="text"]::placeholder { color: var(--text-tertiary); }
+
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="%235c5c62" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 30px;
+  }
+
+  input[type="checkbox"] {
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    border: 1.5px solid var(--border-strong);
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  input[type="radio"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    border-radius: var(--radius-pill);
+    background: var(--border-strong);
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--accent);
+    margin-top: 0;
+    transition: transform var(--dur-fast) var(--ease);
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.12); }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--surface);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  input[type="range"]::-moz-range-track { height: 4px; border-radius: var(--radius-pill); background: var(--border-strong); }
+
+  output#qualityValue {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .hint-text {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+  }
+
+  .radio-row { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+  .radio-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.8125rem;
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  /* 모드 토글 (세그먼트 컨트롤) */
+  .mode-toggle {
+    display: inline-flex;
+    padding: 3px;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    width: fit-content;
+    gap: 2px;
+  }
+  .mode-toggle__btn {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 7px var(--space-4);
+    border-radius: calc(var(--radius-md) - 3px);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+  }
+  .mode-toggle__btn:hover { color: var(--text); }
+  .mode-toggle__btn.is-active {
+    background: var(--surface);
+    color: var(--accent);
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* ==========================================================================
+     8. 파일 목록
+     ========================================================================== */
+  .file-list-wrap { display: flex; flex-direction: column; gap: var(--space-2); }
+
+  .file-list__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .file-list__summary { font-size: 0.78125rem; color: var(--text-tertiary); font-weight: 600; }
+
+  .file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    padding: var(--space-2);
+  }
+  .file-list:empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 64px;
+  }
+  .file-list:empty::after {
+    content: "선택된 PDF 파일이 없습니다.";
+    font-size: 0.78125rem;
+    color: var(--text-tertiary);
+  }
+
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1px solid transparent;
+    transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease);
+  }
+  .file-row:hover { border-color: var(--border); }
+  .file-row.is-active { border-color: var(--accent-soft-strong); background: var(--accent-soft); }
+
+  .file-row__check { flex-shrink: 0; }
+
+  .file-row__icon {
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: var(--radius-sm);
+    background: var(--danger-soft);
+    color: var(--danger);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .file-row__info { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+  .file-row__name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-row__meta {
+    font-size: 0.71875rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-row__meta .file-row__error { color: var(--danger); }
+
+  .file-row__actions {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .file-row__remove {
+    width: 26px; height: 26px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  }
+  .file-row__remove:hover { background: var(--danger-soft); color: var(--danger); }
+
+  /* 상태 배지 */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 3px 9px 3px 7px;
+    border-radius: var(--radius-pill);
+    white-space: nowrap;
+  }
+  .status-pill::before {
+    content: "";
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+  .status-pill--idle { background: var(--surface-sunken); color: var(--text-tertiary); }
+  .status-pill--checking { background: var(--info-soft); color: var(--info); }
+  .status-pill--ready { background: var(--surface-sunken); color: var(--text-secondary); }
+  .status-pill--converting { background: var(--accent-soft); color: var(--accent); }
+  .status-pill--converting::before { animation: pulse-dot 1s ease-in-out infinite; }
+  .status-pill--done { background: var(--success-soft); color: var(--success); }
+  .status-pill--error { background: var(--danger-soft); color: var(--danger); }
+  .status-pill--warning { background: var(--warning-soft); color: var(--warning); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.75); }
+  }
+
+  /* ==========================================================================
+     9. 액션 바 / 진행 상황
+     ========================================================================== */
+  .action-bar {
+    display: flex;
+    gap: var(--space-3);
+  }
+  .action-bar .btn { flex: 1; }
+  .action-bar .btn--outline-danger { flex: 0 0 auto; min-width: 120px; }
+
+  .progress-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+  .current-file-label {
+    font-size: 0.78125rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .progressbar-track {
+    position: relative;
+    height: 10px;
+    border-radius: var(--radius-pill);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .progressbar-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-hover) 100%);
+    transition: width var(--dur-base) var(--ease);
+    position: relative;
+    overflow: hidden;
+  }
+  .progressbar-fill.is-active::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.35) 50%, transparent 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 120% 0; }
+    100% { background-position: -20% 0; }
+  }
+
+  .progress-text {
+    font-size: 0.78125rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ==========================================================================
+     10. 결과 카드
+     ========================================================================== */
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+  .result-stat {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .result-stat__value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+  .result-stat--success .result-stat__value { color: var(--success); }
+  .result-stat--error .result-stat__value { color: var(--danger); }
+  .result-stat__label { font-size: 0.71875rem; color: var(--text-tertiary); font-weight: 600; }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: var(--space-2);
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .preview-tile {
+    position: relative;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface-sunken);
+    cursor: zoom-in;
+    aspect-ratio: 1 / 1;
+  }
+  .preview-tile img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform var(--dur-base) var(--ease);
+  }
+  .preview-tile:hover img { transform: scale(1.06); }
+  .preview-tile__name {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 5px 7px;
+    font-size: 0.625rem;
+    color: #fff;
+    background: linear-gradient(0deg, rgba(0,0,0,0.65), rgba(0,0,0,0));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .preview-tile__dl {
+    position: absolute;
+    top: 5px; right: 5px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(20,20,24,0.55);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    border: none;
+    cursor: pointer;
+    backdrop-filter: blur(2px);
+  }
+  .preview-tile__dl:hover { background: rgba(20,20,24,0.8); }
+
+  /* ==========================================================================
+     11. 로그 패널
+     ========================================================================== */
+  .log-panel {
+    height: 190px;
+    overflow-y: auto;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 0.71875rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+  }
+  .log-panel:empty::after {
+    content: "로그가 여기에 표시됩니다.";
+    color: var(--text-tertiary);
+  }
+  .log-line { white-space: pre-wrap; word-break: break-all; }
+  .log-line--divider { color: var(--text-tertiary); font-weight: 700; margin: 2px 0; }
+  .log-line--error { color: var(--danger); }
+  .log-line--done { color: var(--success); }
+  .log-line--notice { color: var(--info); }
+
+  /* ==========================================================================
+     12. 토스트 / 배너
+     ========================================================================== */
+  .toast-container {
+    position: fixed;
+    top: var(--space-4);
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    z-index: 1000;
+    width: min(92vw, 420px);
+    pointer-events: none;
+  }
+  .toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    font-size: 0.8125rem;
+    color: var(--text);
+    animation: toast-in var(--dur-base) var(--ease);
+  }
+  .toast--error { border-left: 3px solid var(--danger); }
+  .toast--warning { border-left: 3px solid var(--warning); }
+  .toast--info { border-left: 3px solid var(--info); }
+  .toast__icon { flex-shrink: 0; margin-top: 1px; }
+  .toast--error .toast__icon { color: var(--danger); }
+  .toast--warning .toast__icon { color: var(--warning); }
+  .toast--info .toast__icon { color: var(--info); }
+  .toast.is-leaving { animation: toast-out var(--dur-base) var(--ease) forwards; }
+
+  @keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes toast-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-8px); } }
+
+  /* ==========================================================================
+     13. 모달 (미리보기)
+     ========================================================================== */
+  .modal { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; padding: var(--space-4); }
+  .modal[hidden] { display: none; }
+  .modal__backdrop { position: absolute; inset: 0; background: rgba(10, 10, 14, 0.72); backdrop-filter: blur(2px); }
+  .modal__dialog {
+    position: relative;
+    z-index: 1;
+    max-width: min(92vw, 720px);
+    max-height: 88vh;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    animation: modal-in var(--dur-base) var(--ease);
+  }
+  @keyframes modal-in { from { opacity: 0; transform: scale(0.97) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+  .modal__close {
+    position: absolute;
+    top: var(--space-3); right: var(--space-3);
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-alt);
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .modal__close:hover { background: var(--surface-sunken); color: var(--text); }
+
+  .modal__img {
+    max-width: 100%;
+    max-height: 58vh;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    margin: 0 auto;
+  }
+  .modal__caption {
+    text-align: center;
+    font-size: 0.78125rem;
+    color: var(--text-secondary);
+    word-break: break-all;
+  }
+  .modal__nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+  }
+
+  /* ==========================================================================
+     14. 푸터
+     ========================================================================== */
+  .app-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .app-footer__info { flex: 1; min-width: 200px; }
+  .app-footer__info p { font-size: 0.75rem; color: var(--text-tertiary); }
+  .app-footer__meta { margin-top: 3px !important; font-size: 0.6875rem !important; color: var(--text-tertiary); opacity: 0.8; }
+
+  /* ==========================================================================
+     15. 반응형
+     ========================================================================== */
+  @media (max-width: 640px) {
+    .app-shell { padding: var(--space-4) var(--space-3) var(--space-6); gap: var(--space-4); }
+    .settings-grid { grid-template-columns: 1fr; }
+    .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .action-bar { flex-direction: column; }
+    .action-bar .btn--outline-danger { width: 100%; }
+    .button-row { flex-direction: column; align-items: stretch; }
+    .button-row .btn { width: 100%; }
+    .app-header__top { align-items: center; }
+    .app-header__desc { display: none; }
+    .file-row__meta { display: none; }
+    .app-footer { flex-direction: column; align-items: stretch; text-align: center; }
+  }
+
+  @media (max-width: 420px) {
+    .result-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- ============================== 상단: 헤더 + 드롭존 ============================== -->
+    <header class="app-header">
+      <div class="app-header__top">
+        <div class="app-header__brand">
+          <span class="app-header__logo" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M7 3.5H14L18.5 8V19.5C18.5 20.0523 18.0523 20.5 17.5 20.5H7C6.44772 20.5 6 20.0523 6 19.5V4.5C6 3.94772 6.44772 3.5 7 3.5Z" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M14 3.5V8H18.5" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+              <path d="M9 13.2H15.5M9 16.3H13" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div>
+            <h1 class="app-header__title">PDF → JPG 변환기</h1>
+            <p class="app-header__desc">PDF 파일을 브라우저 안에서 곧바로 JPG 이미지로 변환합니다. 파일은 서버로 전송되지 않습니다.</p>
+          </div>
+        </div>
+        <button type="button" id="themeToggleBtn" class="icon-btn" aria-label="다크 모드 전환" title="다크 모드 전환">
+          <svg class="icon-sun" width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="3.6" stroke="currentColor" stroke-width="1.5"/><path d="M10 1.8V4M10 16V18.2M18.2 10H16M4 10H1.8M15.6 4.4L14 6M6 14L4.4 15.6M15.6 15.6L14 14M6 6L4.4 4.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <svg class="icon-moon" width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M17 11.3C16.2 11.7 15.3 12 14.3 12C10.9 12 8.2 9.3 8.2 5.9C8.2 4.9 8.5 4 8.9 3.2C5.7 3.9 3.3 6.7 3.3 10.1C3.3 14 6.5 17.2 10.4 17.2C13.7 17.2 16.4 15 17 11.3Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div id="dropZone" class="dropzone" tabindex="0" role="button" aria-label="PDF 파일을 여기에 끌어다 놓거나 눌러서 파일을 선택하세요">
+        <span class="dropzone__icon" aria-hidden="true">
+          <svg width="46" height="46" viewBox="0 0 46 46" fill="none">
+            <rect x="4" y="6" width="20" height="26" rx="2" fill="var(--surface)" stroke="var(--danger)" stroke-width="1.6"/>
+            <path d="M8 13H20M8 17.5H20M8 22H15" stroke="var(--danger)" stroke-width="1.6" stroke-linecap="round"/>
+            <path d="M26 19L34 19" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M31 15.5L34.8 19L31 22.5" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <rect x="24" y="24" width="18" height="16" rx="2" fill="var(--surface)" stroke="var(--success)" stroke-width="1.6"/>
+            <circle cx="29" cy="29.5" r="1.7" fill="var(--warning)"/>
+            <path d="M25.3 37.5L31 31.8L34.3 35.1L37 32.4L40.7 36.1" stroke="var(--success)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <p class="dropzone__text">PDF 파일을 여기에 끌어다 놓으세요</p>
+        <p class="dropzone__subtext">또는 클릭하여 파일 선택 · 여러 개 동시 선택 가능</p>
+      </div>
+      <input type="file" id="dropZoneFileInput" accept="application/pdf,.pdf" multiple hidden />
+    </header>
+
+    <!-- ============================== 중앙: 메인 카드 영역 ============================== -->
+    <main class="app-main">
+
+      <!-- 입력 선택 카드 -->
+      <section class="card" aria-labelledby="inputSectionTitle">
+        <h2 id="inputSectionTitle" class="card__title">입력 선택</h2>
+
+        <div class="mode-toggle" role="tablist" aria-label="입력 방식 선택">
+          <button type="button" id="modeFilesBtn" class="mode-toggle__btn is-active" role="tab" aria-selected="true" data-mode="files">개별 파일 선택</button>
+          <button type="button" id="modeFolderBtn" class="mode-toggle__btn" role="tab" aria-selected="false" data-mode="folder">폴더 선택</button>
+        </div>
+
+        <div class="button-row">
+          <button type="button" id="selectFilesBtn" class="btn btn--primary">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3V13M10 3L6.5 6.5M10 3L13.5 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 13V15.5C3.5 16.3284 4.17157 17 5 17H15C15.8284 17 16.5 16.3284 16.5 15.5V13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            PDF 파일 선택
+          </button>
+          <button type="button" id="selectFolderBtn" class="btn btn--primary" hidden>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 6C2.5 5.17157 3.17157 4.5 4 4.5H8L9.5 6.5H16C16.8284 6.5 17.5 7.17157 17.5 8V14C17.5 14.8284 16.8284 15.5 16 15.5H4C3.17157 15.5 2.5 14.8284 2.5 14V6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            폴더 선택
+          </button>
+          <button type="button" id="removeSelectedBtn" class="btn btn--secondary" disabled>선택 항목 제거</button>
+          <button type="button" id="clearFilesBtn" class="btn btn--secondary" disabled>목록 전체 삭제</button>
+        </div>
+        <input type="file" id="filesInput" accept="application/pdf,.pdf" multiple hidden />
+        <input type="file" id="folderInput" webkitdirectory multiple hidden />
+
+        <p id="folderModeHint" class="hint-text" hidden>선택한 폴더 최상위에 있는 PDF 파일만 대상으로 합니다 (하위 폴더 제외). 브라우저 보안 정책상 임의의 로컬 폴더를 자유롭게 탐색할 수는 없습니다.</p>
+
+        <div class="file-list-wrap">
+          <div class="file-list__header">
+            <span id="fileListSummary" class="file-list__summary">선택된 파일 없음</span>
+          </div>
+          <ul id="fileList" class="file-list scroll-thin" aria-label="선택된 PDF 파일 목록"></ul>
+        </div>
+      </section>
+
+      <!-- 변환 설정 카드 -->
+      <section class="card" aria-labelledby="settingsSectionTitle">
+        <h2 id="settingsSectionTitle" class="card__title">변환 설정</h2>
+
+        <div class="settings-grid">
+          <div class="field">
+            <label for="dpiSelect">DPI (해상도)</label>
+            <select id="dpiSelect">
+              <option value="72">72 DPI</option>
+              <option value="150">150 DPI</option>
+              <option value="200">200 DPI</option>
+              <option value="300" selected>300 DPI (기본값)</option>
+              <option value="400">400 DPI</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="qualityRange">JPG 품질 <output id="qualityValue" for="qualityRange">0.90</output></label>
+            <input type="range" id="qualityRange" min="0.1" max="1" step="0.05" value="0.9" aria-describedby="qualityHint" />
+          </div>
+        </div>
+
+        <div class="field field--checkbox" id="rangeCheckboxField">
+          <input type="checkbox" id="rangeEnabledCheckbox" />
+          <label for="rangeEnabledCheckbox">일부 페이지만 변환</label>
+        </div>
+        <div class="field" id="rangeInputField">
+          <label for="rangeInput">페이지 범위</label>
+          <input type="text" id="rangeInput" placeholder="예: 1-3,5,7-9" disabled />
+          <p class="hint-text" id="qualityHint">여러 파일 선택 시, 지정한 페이지 범위가 각 파일에 동일하게 적용됩니다. 페이지 번호는 1부터 시작합니다.</p>
+        </div>
+      </section>
+
+      <!-- 실행 버튼 -->
+      <div class="action-bar">
+        <button type="button" id="startBtn" class="btn btn--accent btn--lg">
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M6 4.2L15.5 10L6 15.8V4.2Z" fill="currentColor"/></svg>
+          변환 시작
+        </button>
+        <button type="button" id="cancelBtn" class="btn btn--outline-danger btn--lg" disabled>취소</button>
+      </div>
+
+      <!-- 진행 상황 카드 -->
+      <section class="card" aria-labelledby="progressSectionTitle">
+        <h2 id="progressSectionTitle" class="card__title">진행 상황</h2>
+        <div class="progress-status">
+          <span id="statusLabel" class="status-pill status-pill--idle">대기 중</span>
+          <span id="currentFileLabel" class="current-file-label"></span>
+        </div>
+        <div class="progressbar-track" role="progressbar" id="progressBar" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-label="변환 진행률">
+          <div class="progressbar-fill" id="progressBarFill" style="width:0%"></div>
+        </div>
+        <p id="progressText" class="progress-text">진행 상황: 대기 중</p>
+      </section>
+
+      <!-- 결과 카드 -->
+      <section class="card" id="resultCard" aria-labelledby="resultSectionTitle" hidden>
+        <h2 id="resultSectionTitle" class="card__title">변환 결과</h2>
+        <div class="result-grid" id="resultGrid"></div>
+        <div class="button-row">
+          <button type="button" id="downloadZipBtn" class="btn btn--accent">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M10 3V13M10 13L6.5 9.5M10 13L13.5 9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 13V15.5C3.5 16.3284 4.17157 17 5 17H15C15.8284 17 16.5 16.3284 16.5 15.5V13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ZIP 다운로드
+          </button>
+          <button type="button" id="saveFolderBtn" class="btn btn--secondary" hidden>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M2.5 6C2.5 5.17157 3.17157 4.5 4 4.5H8L9.5 6.5H16C16.8284 6.5 17.5 7.17157 17.5 8V14C17.5 14.8284 16.8284 15.5 16 15.5H4C3.17157 15.5 2.5 14.8284 2.5 14V6Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
+            폴더에 저장
+          </button>
+          <button type="button" id="downloadErrorLogBtn" class="btn btn--secondary" hidden>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M6 2.5H12L15.5 6V16.5C15.5 17.0523 15.0523 17.5 14.5 17.5H6C5.44772 17.5 5 17.0523 5 16.5V3.5C5 2.94772 5.44772 2.5 6 2.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 10.5H12M8 13H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            오류 로그 다운로드
+          </button>
+          <button type="button" id="togglePreviewBtn" class="btn btn--ghost" hidden>미리보기 보기</button>
+        </div>
+        <div id="previewGrid" class="preview-grid scroll-thin" hidden></div>
+      </section>
+
+      <!-- 로그 영역 -->
+      <section class="card" aria-labelledby="logSectionTitle">
+        <div class="card__title-row">
+          <h2 id="logSectionTitle" class="card__title">처리 로그</h2>
+          <button type="button" id="clearLogBtn" class="btn btn--ghost btn--sm">로그 지우기</button>
+        </div>
+        <div id="logPanel" class="log-panel scroll-thin" role="log" aria-live="polite" aria-label="처리 로그" tabindex="0"></div>
+      </section>
+    </main>
+
+    <!-- ============================== 하단: 푸터 ============================== -->
+    <footer class="app-footer">
+      <button type="button" id="resetBtn" class="btn btn--secondary">초기화</button>
+      <div class="app-footer__info">
+        <p>모든 PDF 처리는 사용자의 브라우저 내부에서 이루어지며, PDF 원본 파일은 외부 서버로 전송되지 않습니다.</p>
+        <p class="app-footer__meta">PDF → JPG 변환기 · Vanilla JS · PDF.js 3.11.174 · JSZip 3.10.1</p>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ============================== 미리보기 모달 ============================== -->
+  <div id="previewModal" class="modal" hidden>
+    <div class="modal__backdrop" id="previewModalBackdrop"></div>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="previewModalCaption">
+      <button type="button" id="previewModalClose" class="modal__close" aria-label="닫기">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <img id="previewModalImg" class="modal__img" alt="" />
+      <p class="modal__caption" id="previewModalCaption"></p>
+      <div class="modal__nav">
+        <button type="button" id="previewModalPrev" class="btn btn--ghost">‹ 이전</button>
+        <button type="button" id="previewModalDownload" class="btn btn--secondary">다운로드</button>
+        <button type="button" id="previewModalNext" class="btn btn--ghost">다음 ›</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 토스트 알림 컨테이너 -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- ============================== 외부 라이브러리 (CDN) ==============================
+       PDF.js  : PDF 파일 분석 및 페이지를 Canvas에 렌더링하기 위해 사용 (버전 3.11.174 고정)
+       JSZip   : 변환된 JPG 파일과 오류 로그를 하나의 ZIP 파일로 압축하기 위해 사용 (버전 3.10.1 고정)
+       두 라이브러리 모두 최초 실행 시 1회 CDN에서 로드되며, 이후 PDF 자체의 분석/렌더링/변환은
+       전적으로 브라우저 내부에서 처리됩니다 (서버로 PDF가 전송되지 않음).
+  =================================================================================== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <script>
+  'use strict';
+
+  // ============================================================================
+  // 0. 상수 (Constants)
+  // ============================================================================
+  const DEFAULT_DPI = 300;
+  const DEFAULT_QUALITY = 0.9;
+  const MAX_CANVAS_AREA = 100000000; // 캔버스 넓이 안전 상한(px^2, 약 1억) - 브라우저 메모리 보호용
+  const ZIP_FILENAME = 'converted_files.zip';
+  const ERROR_LOG_FILENAME = 'error_log.txt';
+  const PDFJS_WORKER_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // PDF.js는 PDF 파싱/디코딩을 별도의 Web Worker에서 수행한다 (메인 스레드 UI 프리징 최소화).
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
+  }
+
+  // ============================================================================
+  // 1. 상태 관리 (State Management)
+  // 전역 변수를 흩뿌리지 않고 하나의 상태 객체로 모아서 관리한다.
+  // ============================================================================
+  const state = {
+    mode: 'files', // 'files' | 'folder' - 현재 입력 방식
+    filesByMode: {
+      files: [], // 개별 파일 모드에서 추가된 파일 항목 배열
+      folder: [], // 폴더 모드에서 추가된 파일 항목 배열
+    },
+    selectedIds: new Set(), // 목록에서 체크박스로 선택된 파일 항목의 id ("선택 항목 제거"용)
+    dpi: DEFAULT_DPI,
+    quality: DEFAULT_QUALITY,
+    rangeEnabled: false,
+    isConverting: false,
+    cancelRequested: false,
+    errorLogs: [], // { fileName, page, message } 오류 기록 목록
+    lastResults: [], // 최근 변환 결과: { filename, blob, sourceFile, pageNumber }
+    lastZipBlob: null,
+    previewUrls: [], // 생성된 objectURL 목록 추적 (메모리 해제를 위함)
+    previewIndex: 0,
+    fileSystemAccessSupported: 'showDirectoryPicker' in window,
+  };
+
+  let fileIdCounter = 0;
+
+  /** 현재 모드에 해당하는 파일 목록 배열을 반환한다. */
+  function getCurrentFiles() {
+    return state.filesByMode[state.mode];
+  }
+
+  // ============================================================================
+  // 2. 공용 유틸리티 함수
+  // ============================================================================
+
+  /** id로 DOM 요소를 조회하는 축약 헬퍼. */
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  /** 파일 항목에 부여할 고유 id를 생성한다. */
+  function nextFileId() {
+    fileIdCounter += 1;
+    return 'f' + Date.now().toString(36) + fileIdCounter.toString(36);
+  }
+
+  /** 이름+크기+수정시각 기준으로 File을 식별하는 키를 만든다 (중복 추가 판별용 경량 휴리스틱). */
+  function getFileKey(file) {
+    return file.name + '|' + file.size + '|' + file.lastModified;
+  }
+
+  /** 바이트 크기를 사람이 읽기 쉬운 문자열로 변환한다 (예: 1.2 MB). */
+  function formatFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 0) return '-';
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    const value = bytes / Math.pow(1024, exponent);
+    const formatted = exponent === 0 ? String(value) : value.toFixed(value < 10 ? 2 : 1);
+    return `${formatted} ${units[exponent]}`;
+  }
+
+  /** 파일명에서 확장자를 제거한 이름을 반환한다. */
+  function stripExtension(filename) {
+    const idx = filename.lastIndexOf('.');
+    return idx > 0 ? filename.slice(0, idx) : filename;
+  }
+
+  /** 파일명이 .pdf 확장자를 갖는지 확인한다 (대소문자 무시). */
+  function hasPdfExtension(filename) {
+    return /\.pdf$/i.test(filename);
+  }
+
+  /** File이 PDF로 취급 가능한지 확인한다 (MIME 타입 또는 확장자 기준). */
+  function isPdfFile(file) {
+    return file.type === 'application/pdf' || hasPdfExtension(file.name);
+  }
+
+  /** 메인 스레드에 잠시 제어권을 양보한다 (UI 프리징 방지, 취소 버튼 반응성 확보). */
+  function yieldToMain() {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+  }
+
+  /** 사용자 제공 문자열(파일명 등)을 안전하게 표시하기 위해 HTML 특수문자를 이스케이프한다. */
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ============================================================================
+  // 3. 파일 관리 (File Management)
+  // addFiles() / removeFile() / clearFiles() 및 관련 모드 전환, 드래그 앤 드롭 처리.
+  // ============================================================================
+
+  /**
+   * 폴더 입력(webkitdirectory)에서 최상위 계층의 PDF 파일만 추려낸다.
+   * Python 데스크톱 버전의 폴더 모드가 os.listdir()로 하위 폴더를 재귀하지 않는 것과 동일한 정책이다.
+   */
+  function collectTopLevelPdfsFromFileList(fileList) {
+    const pdfFiles = [];
+    const ignoredNested = [];
+    for (const file of Array.from(fileList)) {
+      const relPath = file.webkitRelativePath || file.name;
+      const depth = relPath.split('/').length;
+      if (depth > 2) {
+        ignoredNested.push(file.name);
+        continue;
+      }
+      if (isPdfFile(file)) pdfFiles.push(file);
+    }
+    return { pdfFiles, ignoredNested };
+  }
+
+  /**
+   * 파일 관리: addFiles()
+   * 주어진 File들을 현재 모드의 목록에 추가한다.
+   * - PDF가 아닌 파일(확장자/MIME 기준)은 제외한다.
+   * - 이미 목록에 있는 파일(이름+크기+수정시각 동일)은 중복 추가하지 않는다.
+   * @returns {{added:number, duplicate:number, rejected:number}}
+   */
+  function addFiles(files) {
+    const targetList = getCurrentFiles();
+    const existingKeys = new Set(targetList.map((entry) => getFileKey(entry.file)));
+    let added = 0;
+    let duplicate = 0;
+    let rejected = 0;
+
+    for (const file of files) {
+      if (!isPdfFile(file)) {
+        rejected += 1;
+        continue;
+      }
+      const key = getFileKey(file);
+      if (existingKeys.has(key)) {
+        duplicate += 1;
+        continue;
+      }
+      existingKeys.add(key);
+      targetList.push({
+        id: nextFileId(),
+        file,
+        name: file.name,
+        size: file.size,
+        pageCount: null,       // 사전 검사 전에는 알 수 없음
+        targetPageCount: null, // 실제 변환 대상 페이지 수 (범위 지정 시 달라질 수 있음)
+        status: 'pending',     // pending | checking | ready | converting | done | partial | skipped | error
+        errorMessage: null,
+      });
+      added += 1;
+    }
+    return { added, duplicate, rejected };
+  }
+
+  /** 파일 관리: removeFile() - 현재 모드 목록에서 단일 항목을 제거한다. */
+  function removeFile(id) {
+    const targetList = getCurrentFiles();
+    const idx = targetList.findIndex((entry) => entry.id === id);
+    if (idx !== -1) targetList.splice(idx, 1);
+    state.selectedIds.delete(id);
+  }
+
+  /** 체크박스로 선택된 항목들을 현재 모드 목록에서 한 번에 제거한다 ("선택 항목 제거"). */
+  function removeSelectedFiles() {
+    if (state.selectedIds.size === 0) return 0;
+    const targetList = getCurrentFiles();
+    const before = targetList.length;
+    state.filesByMode[state.mode] = targetList.filter((entry) => !state.selectedIds.has(entry.id));
+    const removed = before - state.filesByMode[state.mode].length;
+    state.selectedIds.clear();
+    return removed;
+  }
+
+  /** 파일 관리: clearFiles() - 현재 모드 목록을 전부 비운다 ("목록 전체 삭제"). */
+  function clearFiles() {
+    state.filesByMode[state.mode] = [];
+    state.selectedIds.clear();
+  }
+
+  /** 입력 방식(개별 파일 ↔ 폴더)을 전환한다. 각 모드의 목록은 서로 독립적으로 유지된다. */
+  function setMode(newMode) {
+    if (state.mode === newMode) return;
+    state.mode = newMode;
+    updateModeDependentUI();
+    renderFileList();
+  }
+
+  /** 현재 모드에 따라 관련 UI(입력 버튼, 페이지 범위 옵션 등)의 표시 여부를 갱신한다. */
+  function updateModeDependentUI() {
+    const isFiles = state.mode === 'files';
+
+    dom.modeFilesBtn.classList.toggle('is-active', isFiles);
+    dom.modeFilesBtn.setAttribute('aria-selected', String(isFiles));
+    dom.modeFolderBtn.classList.toggle('is-active', !isFiles);
+    dom.modeFolderBtn.setAttribute('aria-selected', String(!isFiles));
+
+    dom.selectFilesBtn.hidden = !isFiles;
+    dom.selectFolderBtn.hidden = isFiles;
+    dom.folderModeHint.hidden = isFiles;
+
+    // 페이지 범위 지정은 개별 파일 모드에서만 의미가 있다 (Python 버전과 동일한 정책).
+    dom.rangeCheckboxField.hidden = !isFiles;
+    dom.rangeInputField.hidden = !isFiles || !state.rangeEnabled;
+  }
+
+  /** "PDF 파일 선택" input의 change 이벤트 처리. */
+  function handleFilesInputChange(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = ''; // 동일 파일 재선택 시에도 change 이벤트가 다시 발생하도록 초기화
+    if (files.length === 0) return;
+    if (state.mode !== 'files') setMode('files');
+    const { added, duplicate, rejected } = addFiles(files);
+    reportAddFilesResult(added, duplicate, rejected, '선택됨');
+    renderFileList();
+  }
+
+  /** "폴더 선택" input의 change 이벤트 처리 (webkitdirectory 기반). */
+  function handleFolderInputChange(event) {
+    const fileList = event.target.files;
+    event.target.value = '';
+    if (!fileList || fileList.length === 0) return;
+    if (state.mode !== 'folder') setMode('folder');
+
+    const { pdfFiles, ignoredNested } = collectTopLevelPdfsFromFileList(fileList);
+    clearFiles(); // 폴더를 새로 선택하면 이전 폴더의 목록은 새 선택으로 대체된다.
+    const { added, duplicate, rejected } = addFiles(pdfFiles);
+    reportAddFilesResult(added, duplicate, rejected, '추가됨');
+    if (ignoredNested.length > 0) {
+      appendLog(`[대기] 하위 폴더 안의 파일 ${ignoredNested.length}개는 대상에서 제외되었습니다 (최상위 폴더만 대상).`);
+    }
+    if (pdfFiles.length === 0) {
+      showToast('선택한 폴더에서 PDF 파일을 찾을 수 없습니다.', 'warning');
+    }
+    renderFileList();
+  }
+
+  /** 파일 추가 결과를 로그와 토스트로 사용자에게 안내한다. */
+  function reportAddFilesResult(added, duplicate, rejected, verb) {
+    if (added > 0) {
+      appendLog(`[대기] PDF 파일 ${added}개 ${verb}`);
+    }
+    if (rejected > 0) {
+      showToast(`PDF가 아닌 파일 ${rejected}개는 변환 대상에서 제외되었습니다.`, 'warning');
+      appendLog(`[대기] PDF가 아닌 파일 ${rejected}개는 목록에서 제외되었습니다.`);
+    }
+    if (duplicate > 0) {
+      appendLog(`[대기] 이미 목록에 있는 파일 ${duplicate}개는 중복 추가되지 않았습니다.`);
+    }
+  }
+
+  // ---- 드래그 앤 드롭 -------------------------------------------------------
+
+  let dragCounter = 0; // 자식 요소 사이를 오갈 때 발생하는 dragenter/dragleave 중첩 보정용
+
+  function handleDropZoneDragEnter(event) {
+    event.preventDefault();
+    dragCounter += 1;
+    dom.dropZone.classList.add('is-dragover');
+  }
+
+  function handleDropZoneDragOver(event) {
+    event.preventDefault(); // preventDefault를 호출해야 drop 이벤트가 발생한다.
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDropZoneDragLeave(event) {
+    event.preventDefault();
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) dom.dropZone.classList.remove('is-dragover');
+  }
+
+  /** 드롭존에 드롭된 항목을 처리한다. PDF 파일은 개별 파일 모드로, 폴더 하나는 폴더 모드로 추가한다. */
+  async function handleDropZoneDrop(event) {
+    event.preventDefault();
+    dragCounter = 0;
+    dom.dropZone.classList.remove('is-dragover');
+
+    const dataTransfer = event.dataTransfer;
+    if (!dataTransfer) return;
+
+    // 폴더 하나만 드롭된 경우 → 폴더 선택과 동일하게 처리 (지원 브라우저에 한한 최선 노력 기능)
+    const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
+    const entries = items
+      .map((item) => (item.webkitGetAsEntry ? item.webkitGetAsEntry() : null))
+      .filter(Boolean);
+
+    if (entries.length === 1 && entries[0].isDirectory) {
+      try {
+        const pdfFiles = await readTopLevelPdfsFromDirectoryEntry(entries[0]);
+        setMode('folder');
+        clearFiles();
+        const { added, duplicate, rejected } = addFiles(pdfFiles);
+        reportAddFilesResult(added, duplicate, rejected, '추가됨');
+        appendLog(`>> 폴더 드롭됨: ${entries[0].name}`);
+        renderFileList();
+      } catch (err) {
+        showToast('폴더 내용을 읽는 중 문제가 발생했습니다. 폴더 선택 버튼을 이용해 주세요.', 'error');
+      }
+      return;
+    }
+
+    // 그 외: 드롭된 파일 중 PDF만 개별 파일 모드 목록에 추가한다.
+    const droppedFiles = Array.from(dataTransfer.files || []);
+    if (droppedFiles.length === 0) return;
+
+    if (state.mode !== 'files') setMode('files');
+    const { added, duplicate, rejected } = addFiles(droppedFiles);
+    reportAddFilesResult(added, duplicate, rejected, '추가됨 (드래그 앤 드롭)');
+    renderFileList();
+  }
+
+  /**
+   * FileSystemDirectoryEntry에서 최상위 계층의 PDF File 객체만 비동기로 모은다.
+   * webkitGetAsEntry는 표준은 아니지만 Chrome/Edge 등 주요 브라우저에서 널리 지원되는 최선 노력 기능이다.
+   */
+  function readTopLevelPdfsFromDirectoryEntry(directoryEntry) {
+    return new Promise((resolve, reject) => {
+      const reader = directoryEntry.createReader();
+      const collected = [];
+
+      function readBatch() {
+        reader.readEntries((entries) => {
+          if (entries.length === 0) {
+            const filePromises = collected
+              .filter((entry) => entry.isFile && hasPdfExtension(entry.name))
+              .map((entry) => new Promise((res, rej) => entry.file(res, rej)));
+            Promise.all(filePromises).then(resolve).catch(reject);
+            return;
+          }
+          // 디렉터리 항목이 많으면 여러 번에 나뉘어 반환되므로 빈 배열이 올 때까지 반복한다.
+          collected.push(...entries);
+          readBatch();
+        }, reject);
+      }
+
+      readBatch();
+    });
+  }
+
+  // ---- 파일 목록 렌더링 ------------------------------------------------------
+
+  /** 파일 상태값에 대응하는 배지 텍스트와 CSS 클래스를 반환한다. */
+  function getStatusPillInfo(status) {
+    switch (status) {
+      case 'pending': return { text: '대기', cls: 'status-pill--idle' };
+      case 'checking': return { text: '확인 중', cls: 'status-pill--checking' };
+      case 'ready': return { text: '준비됨', cls: 'status-pill--ready' };
+      case 'converting': return { text: '변환 중', cls: 'status-pill--converting' };
+      case 'done': return { text: '완료', cls: 'status-pill--done' };
+      case 'partial': return { text: '취소됨', cls: 'status-pill--warning' };
+      case 'skipped': return { text: '건너뜀', cls: 'status-pill--warning' };
+      case 'error': return { text: '오류', cls: 'status-pill--error' };
+      default: return { text: status, cls: 'status-pill--idle' };
+    }
+  }
+
+  /** 파일 목록 UI를 state.filesByMode[state.mode] 기준으로 다시 그린다. */
+  function renderFileList() {
+    const list = getCurrentFiles();
+    dom.fileList.innerHTML = '';
+
+    for (const entry of list) {
+      const li = document.createElement('li');
+      li.className = 'file-row' + (state.selectedIds.has(entry.id) ? ' is-active' : '');
+      li.dataset.id = entry.id;
+
+      const pill = getStatusPillInfo(entry.status);
+
+      let metaText = formatFileSize(entry.size);
+      if (entry.pageCount != null) {
+        metaText += ` · 전체 ${entry.pageCount}페이지`;
+        if (entry.targetPageCount != null && entry.targetPageCount !== entry.pageCount) {
+          metaText += ` · 대상 ${entry.targetPageCount}페이지`;
+        }
+      }
+      if (entry.errorMessage) {
+        metaText += ` · <span class="file-row__error">${escapeHtml(entry.errorMessage)}</span>`;
+      }
+
+      li.innerHTML = `
+        <input type="checkbox" class="file-row__check" aria-label="${escapeHtml(entry.name)} 선택" ${state.selectedIds.has(entry.id) ? 'checked' : ''} />
+        <span class="file-row__icon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M5 2.5H12L16 6.5V17C16 17.5523 15.5523 18 15 18H5C4.44772 18 4 17.5523 4 17V3.5C4 2.94772 4.44772 2.5 5 2.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M12 2.5V6.5H16" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="file-row__info">
+          <span class="file-row__name" title="${escapeHtml(entry.name)}">${escapeHtml(entry.name)}</span>
+          <span class="file-row__meta">${metaText}</span>
+        </span>
+        <span class="file-row__actions">
+          <span class="status-pill ${pill.cls}">${pill.text}</span>
+          <button type="button" class="file-row__remove" aria-label="${escapeHtml(entry.name)} 제거" data-action="remove-file" data-id="${entry.id}">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M5 5L15 15M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </span>
+      `;
+
+      dom.fileList.appendChild(li);
+    }
+
+    updateFileListSummary();
+  }
+
+  /** 파일 목록 상단 요약 문구와 버튼(선택 항목 제거/전체 삭제) 활성화 상태를 갱신한다. */
+  function updateFileListSummary() {
+    const list = getCurrentFiles();
+    dom.fileListSummary.textContent = list.length === 0 ? '선택된 파일 없음' : `${list.length}개 파일 선택됨`;
+    dom.clearFilesBtn.disabled = list.length === 0 || state.isConverting;
+    dom.removeSelectedBtn.disabled = state.selectedIds.size === 0 || state.isConverting;
+  }
+
+  // ============================================================================
+  // 4. PDF 분석 (PDF Analysis)
+  // loadPdf() / getPageCount() / validatePdf()
+  // ============================================================================
+
+  /**
+   * PDF 분석: loadPdf()
+   * File을 PDF.js로 읽어 PDFDocumentProxy를 반환한다.
+   * 비밀번호로 보호된 PDF는 PasswordException으로 reject된다(onPassword 콜백을 등록하지 않았으므로).
+   */
+  async function loadPdf(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    return loadingTask.promise;
+  }
+
+  /** PDF 분석: getPageCount() - PDFDocumentProxy의 총 페이지 수를 반환한다. */
+  function getPageCount(pdfDoc) {
+    return pdfDoc.numPages;
+  }
+
+  /**
+   * PDF 분석: validatePdf()
+   * 파일을 열어 페이지 수를 확인하고 entry.pageCount를 갱신한다.
+   * 성공 시 { ok:true, pdfDoc }를 반환한다(호출부에서 사용 후 pdfDoc.destroy() 필요).
+   * 실패(손상/비밀번호 보호 등) 시 entry.status를 'error'로 표시하고 { ok:false, error }를 반환한다.
+   */
+  async function validatePdf(entry) {
+    try {
+      const pdfDoc = await loadPdf(entry.file);
+      entry.pageCount = getPageCount(pdfDoc);
+      return { ok: true, pdfDoc };
+    } catch (err) {
+      const message = describePdfError(err);
+      entry.status = 'error';
+      entry.errorMessage = message;
+      return { ok: false, error: message };
+    }
+  }
+
+  /** PDF.js 오류 객체를 사람이 읽을 수 있는 한국어 메시지로 변환한다. */
+  function describePdfError(err) {
+    if (err && err.name === 'PasswordException') {
+      return '비밀번호로 보호된 PDF (건너뜀)';
+    }
+    if (err && err.name === 'InvalidPDFException') {
+      return '손상되었거나 올바르지 않은 PDF 파일입니다.';
+    }
+    const raw = err && err.message ? err.message : String(err);
+    return `파일을 열 수 없음 (${raw})`;
+  }
+
+  // ============================================================================
+  // 5. 페이지 범위 (Page Range)
+  // parsePageRange() / validatePageRange()
+  // ============================================================================
+
+  /**
+   * 페이지 범위: parsePageRange()
+   * "1-3,5,7-9" 형식의 문자열을 1부터 시작하는 페이지 번호의 정렬된 배열로 변환한다.
+   * 형식이 잘못된 경우 Error를 throw한다 (Python 버전 parse_page_range()와 동일한 규칙).
+   */
+  function parsePageRange(text) {
+    const spec = (text || '').trim();
+    if (!spec) {
+      throw new Error('범위를 입력하세요 (예: 1-3,5,7-9)');
+    }
+
+    const pages = new Set();
+    const parts = spec.split(',');
+
+    for (const rawPart of parts) {
+      const part = rawPart.trim();
+      if (!part) continue; // 연속된 콤마 등으로 생긴 빈 조각은 건너뜀
+
+      if (part.includes('-')) {
+        const bounds = part.split('-');
+        if (bounds.length !== 2 || bounds[0].trim() === '' || bounds[1].trim() === '') {
+          throw new Error(`잘못된 범위 형식: '${part}'`);
+        }
+        const start = Number(bounds[0].trim());
+        const end = Number(bounds[1].trim());
+        if (!Number.isInteger(start) || !Number.isInteger(end)) {
+          throw new Error(`숫자가 아닙니다: '${part}'`);
+        }
+        if (start < 1 || end < start) {
+          throw new Error(`잘못된 범위: '${part}'`);
+        }
+        for (let n = start; n <= end; n += 1) pages.add(n);
+      } else {
+        const n = Number(part);
+        if (!Number.isInteger(n)) {
+          throw new Error(`숫자가 아닙니다: '${part}'`);
+        }
+        if (n < 1) {
+          throw new Error(`1 이상의 페이지 번호를 입력하세요: '${part}'`);
+        }
+        pages.add(n);
+      }
+    }
+
+    if (pages.size === 0) {
+      throw new Error('유효한 페이지 번호가 없습니다.');
+    }
+
+    return Array.from(pages).sort((a, b) => a - b);
+  }
+
+  /**
+   * 페이지 범위: validatePageRange()
+   * parsePageRange()를 감싸 예외 대신 결과 객체를 반환한다 (변환 시작 전 UI 사전 검증용).
+   */
+  function validatePageRange(text) {
+    try {
+      const pages = parsePageRange(text);
+      return { valid: true, pages, error: null };
+    } catch (err) {
+      return { valid: false, pages: null, error: err.message };
+    }
+  }
+
+  // ============================================================================
+  // 6. 변환 (Conversion)
+  // renderPageToJpg() / generateOutputFilename()
+  // ============================================================================
+
+  /**
+   * 변환: renderPageToJpg()
+   * PDF의 한 페이지를 지정된 배율(scale)로 Canvas에 렌더링한 뒤 JPEG Blob으로 변환한다.
+   * @param {PDFDocumentProxy} pdfDoc
+   * @param {number} pageNumber 1-indexed 페이지 번호
+   * @param {number} scale DPI/72 로 계산된 렌더링 배율
+   * @param {number} quality JPEG 품질 (0.1~1.0)
+   */
+  async function renderPageToJpg(pdfDoc, pageNumber, scale, quality) {
+    const page = await pdfDoc.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+
+    // 브라우저 메모리 보호: 캔버스가 지나치게 커지지 않도록 안전 상한을 둔다.
+    if (viewport.width * viewport.height > MAX_CANVAS_AREA) {
+      page.cleanup();
+      throw new Error(
+        `캔버스 크기가 너무 큽니다 (${Math.round(viewport.width)}x${Math.round(viewport.height)}px). DPI를 낮춰 다시 시도하세요.`
+      );
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.ceil(viewport.width));
+    canvas.height = Math.max(1, Math.ceil(viewport.height));
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) {
+      throw new Error('Canvas 2D 컨텍스트를 생성할 수 없습니다 (브라우저 메모리 부족일 수 있습니다).');
+    }
+
+    // JPEG은 투명도를 지원하지 않으므로 배경을 흰색으로 먼저 채운다.
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const renderTask = page.render({ canvasContext: ctx, viewport });
+    await renderTask.promise;
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (result) => {
+          if (result) resolve(result);
+          else reject(new Error('JPG 변환에 실패했습니다 (Canvas → Blob 오류).'));
+        },
+        'image/jpeg',
+        quality
+      );
+    });
+
+    // 캔버스를 즉시 비워 메모리를 조기에 회수한다.
+    canvas.width = 0;
+    canvas.height = 0;
+    page.cleanup();
+
+    return blob;
+  }
+
+  /**
+   * 변환: generateOutputFilename()
+   * PDF 파일명과 페이지 정보를 바탕으로 출력 JPG 파일명을 만들고, 배치 전체에서 이름 충돌을 방지한다.
+   *  - 전체 변환 + 1페이지 PDF → document.jpg
+   *  - 전체 변환 + 여러 페이지  → document_1.jpg, document_2.jpg ...
+   *  - 일부 페이지만 변환      → document_p1.jpg, document_p3.jpg ...
+   *  - 이름이 중복되는 경우    → document_1_dup1.jpg, document_1_dup2.jpg ...
+   * @param {Set<string>} usedNames 배치 전체가 공유하는 사용된 파일명 집합 (충돌 방지용)
+   */
+  function generateOutputFilename(baseName, pageNumber1, totalPagesInDoc, isPartialMode, usedNames) {
+    let outName;
+    if (isPartialMode) {
+      outName = `${baseName}_p${pageNumber1}.jpg`;
+    } else if (totalPagesInDoc === 1) {
+      outName = `${baseName}.jpg`;
+    } else {
+      outName = `${baseName}_${pageNumber1}.jpg`;
+    }
+
+    let candidate = outName;
+    let counter = 1;
+    while (usedNames.has(candidate)) {
+      const dotIdx = outName.lastIndexOf('.');
+      const stem = dotIdx >= 0 ? outName.slice(0, dotIdx) : outName;
+      const ext = dotIdx >= 0 ? outName.slice(dotIdx) : '';
+      candidate = `${stem}_dup${counter}${ext}`;
+      counter += 1;
+    }
+    usedNames.add(candidate);
+    return candidate;
+  }
+
+  /**
+   * 변환: convertPdf()
+   * 파일 하나에 대해 지정된 페이지들을 순서대로 렌더링하여 JPG로 변환한다.
+   * 페이지 단위 오류는 addErrorLog()로 개별 기록하고 계속 진행하며, 파일 전체를 중단시키지 않는다
+   * (요구사항 12번: 특정 페이지 오류가 전체 작업을 막지 않아야 한다).
+   * PDF 문서는 이 함수 안에서 새로 열고, 끝나면 반드시 destroy()로 정리한다.
+   *
+   * @param {object} entry 파일 항목 (entry.file, entry.name 사용)
+   * @param {number[]|null} pageIndices 0-indexed 변환 대상 페이지 배열. null이면 전체 페이지.
+   * @param {{dpi:number, quality:number, usedNames:Set<string>, onPageProgress?:Function}} options
+   * @returns {Promise<{results: Array<{filename:string, blob:Blob, sourceFile:string, pageNumber:number}>}>}
+   */
+  async function convertPdf(entry, pageIndices, options) {
+    const { dpi, quality, usedNames, onPageProgress } = options;
+    const pdfDoc = await loadPdf(entry.file);
+
+    try {
+      const nPagesForNaming = pdfDoc.numPages;
+      const isPartial = pageIndices !== null;
+      const indices = isPartial
+        ? pageIndices
+        : Array.from({ length: nPagesForNaming }, (_, i) => i);
+      const baseName = stripExtension(entry.name);
+      const results = [];
+
+      for (let pos = 0; pos < indices.length; pos += 1) {
+        if (state.cancelRequested) {
+          const remaining = indices.length - pos;
+          addErrorLog(entry.name, '취소', `${remaining}개 페이지 처리 전 취소됨`);
+          break;
+        }
+
+        const pageNum1 = indices[pos] + 1;
+
+        try {
+          const scale = dpi / 72;
+          const blob = await renderPageToJpg(pdfDoc, pageNum1, scale, quality);
+          const outName = generateOutputFilename(baseName, pageNum1, nPagesForNaming, isPartial, usedNames);
+          results.push({ filename: outName, blob, sourceFile: entry.name, pageNumber: pageNum1 });
+        } catch (pageErr) {
+          const msg = pageErr && pageErr.message ? pageErr.message : String(pageErr);
+          addErrorLog(entry.name, pageNum1, msg);
+        } finally {
+          if (onPageProgress) onPageProgress(pos + 1, indices.length);
+        }
+
+        await yieldToMain(); // UI 응답성 확보 (취소 버튼 클릭이 반영될 기회를 준다)
+      }
+
+      return { results };
+    } finally {
+      pdfDoc.destroy();
+    }
+  }
+
+  // ============================================================================
+  // 7. 진행률 (Progress)
+  // updateProgress()
+  // ============================================================================
+
+  /** 진행률: updateProgress() - 진행률 바(ProgressBar)와 텍스트를 갱신한다. */
+  function updateProgress(current, total) {
+    const pct = total > 0 ? Math.min(100, Math.round((current / total) * 100)) : 0;
+    dom.progressBarFill.style.width = `${pct}%`;
+    dom.progressBar.setAttribute('aria-valuemax', String(total));
+    dom.progressBar.setAttribute('aria-valuenow', String(current));
+    dom.progressText.textContent = total > 0
+      ? `진행 상황: ${current} / ${total} 페이지 처리 중`
+      : '진행 상황: 대기 중';
+  }
+
+  // ============================================================================
+  // 8. 오류 (Error)
+  // addErrorLog() / generateErrorLog()
+  // ============================================================================
+
+  /** 오류: addErrorLog() - 오류 기록을 state.errorLogs에 남기고 로그 패널에도 실시간으로 표시한다. */
+  function addErrorLog(fileName, page, message) {
+    state.errorLogs.push({ fileName, page: page != null ? page : null, message });
+    const line = page != null && page !== ''
+      ? `${fileName} - 페이지 ${page}: ${message}`
+      : `${fileName}: ${message}`;
+    appendLog(`[오류] ${line}`, 'error');
+  }
+
+  /** 오류: generateErrorLog() - 지금까지 쌓인 오류 기록을 error_log.txt 본문 텍스트로 합친다. */
+  function generateErrorLog() {
+    return state.errorLogs
+      .map((e) => (e.page != null && e.page !== '' ? `${e.fileName} - 페이지 ${e.page}: ${e.message}` : `${e.fileName}: ${e.message}`))
+      .join('\n');
+  }
+
+  // ============================================================================
+  // 9. 로그 패널 / 상태 표시 / 토스트 알림
+  // ============================================================================
+
+  /** 처리 로그 패널에 한 줄을 추가한다. kind에 따라 색상이 달라진다 ('error' | 'done' | 'notice'). */
+  function appendLog(text, kind) {
+    const line = document.createElement('div');
+    let cls = 'log-line';
+    if (kind === 'error') cls += ' log-line--error';
+    else if (kind === 'done') cls += ' log-line--done';
+    else if (kind === 'notice') cls += ' log-line--notice';
+    else if (text.startsWith('===') || text.startsWith('>>')) cls += ' log-line--divider';
+    line.className = cls;
+    line.textContent = text;
+    dom.logPanel.appendChild(line);
+    dom.logPanel.scrollTop = dom.logPanel.scrollHeight;
+  }
+
+  /** 로그 패널을 비운다 ("로그 지우기" 버튼). */
+  function clearLogPanel() {
+    dom.logPanel.innerHTML = '';
+  }
+
+  /** 진행 상황 카드의 상태 배지 텍스트/색상을 갱신한다. */
+  function setStatusLabel(text, variant) {
+    dom.statusLabel.textContent = text;
+    dom.statusLabel.className = `status-pill status-pill--${variant}`;
+  }
+
+  /** 진행 상황 카드의 "현재 처리 중인 파일" 텍스트를 갱신한다. */
+  function setCurrentFileLabel(text) {
+    dom.currentFileLabel.textContent = text ? `현재 파일: ${text}` : '';
+  }
+
+  let toastCounter = 0;
+  /** 화면 상단에 잠시 표시되는 토스트 알림을 띄운다. type: 'info' | 'warning' | 'error' */
+  function showToast(message, type) {
+    const kind = type || 'info';
+    const id = `toast-${(toastCounter += 1)}`;
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${kind}`;
+    toast.id = id;
+
+    const iconPaths = {
+      info: '<circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.4"/><path d="M10 9V14M10 6.5V6.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+      warning: '<path d="M10 3L18 16.5H2L10 3Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10 8.5V12M10 14.3V14.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>',
+      error: '<circle cx="10" cy="10" r="7.2" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 7.5L12.5 12.5M12.5 7.5L7.5 12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+    };
+
+    toast.innerHTML = `
+      <span class="toast__icon" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 20 20" fill="none">${iconPaths[kind] || iconPaths.info}</svg></span>
+      <span class="toast__text">${escapeHtml(message)}</span>
+    `;
+
+    dom.toastContainer.appendChild(toast);
+
+    const remove = () => {
+      toast.classList.add('is-leaving');
+      setTimeout(() => toast.remove(), 220);
+    };
+    setTimeout(remove, 4200);
+  }
+
+  // ============================================================================
+  // 10. 결과 요약 렌더링
+  // ============================================================================
+
+  /** 변환 결과 요약(6개 통계 항목)을 결과 카드에 렌더링한다. */
+  function renderResultSummary(summary) {
+    const stats = [
+      { label: '전체 PDF 파일 수', value: summary.totalFiles, variant: '' },
+      { label: '성공한 PDF 파일 수', value: summary.successFiles, variant: 'success' },
+      { label: '실패한 PDF 파일 수', value: summary.failFiles, variant: summary.failFiles > 0 ? 'error' : '' },
+      { label: '전체 변환 페이지 수', value: summary.totalPages, variant: '' },
+      { label: '성공한 페이지 수', value: summary.successPages, variant: 'success' },
+      { label: '실패한 페이지 수', value: summary.failPages, variant: summary.failPages > 0 ? 'error' : '' },
+    ];
+
+    dom.resultGrid.innerHTML = stats
+      .map(
+        (s) => `
+        <div class="result-stat${s.variant ? ' result-stat--' + s.variant : ''}">
+          <span class="result-stat__value">${s.value}</span>
+          <span class="result-stat__label">${s.label}</span>
+        </div>`
+      )
+      .join('');
+
+    dom.resultCard.hidden = false;
+  }
+
+  // ============================================================================
+  // 11. 다운로드 (Download)
+  // downloadJpg() / createZip() / downloadZip() + 폴더 직접 저장(File System Access API, 선택 기능)
+  // ============================================================================
+
+  /** 공용 Blob 다운로드 헬퍼: 임시 <a> 태그를 만들어 클릭한 뒤 정리한다. */
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  /** 다운로드: downloadJpg() - 변환된 JPG 파일 하나를 개별적으로 다운로드한다. */
+  function downloadJpg(blob, filename) {
+    downloadBlob(blob, filename);
+  }
+
+  /**
+   * 다운로드: createZip()
+   * 변환된 JPG 파일들(및 있는 경우 error_log.txt)을 하나의 ZIP Blob으로 압축한다.
+   */
+  async function createZip(results, errorLogText) {
+    const zip = new JSZip();
+    for (const r of results) {
+      zip.file(r.filename, r.blob);
+    }
+    if (errorLogText) {
+      zip.file(ERROR_LOG_FILENAME, errorLogText);
+    }
+    return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+  }
+
+  /** 다운로드: downloadZip() - 생성된 ZIP Blob을 converted_files.zip 이름으로 다운로드한다. */
+  function downloadZip(zipBlob, filename) {
+    downloadBlob(zipBlob, filename || ZIP_FILENAME);
+  }
+
+  /**
+   * 변환 결과를 사용자가 선택한 로컬 폴더에 직접 저장한다 (File System Access API, 선택 기능).
+   * 미지원 브라우저에서는 이 함수를 호출하는 버튼 자체가 노출되지 않고, ZIP 다운로드로 대체된다.
+   */
+  async function saveResultsToFolder(results, errorLogText) {
+    const dirHandle = await window.showDirectoryPicker();
+    for (const r of results) {
+      const fileHandle = await dirHandle.getFileHandle(r.filename, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(r.blob);
+      await writable.close();
+    }
+    if (errorLogText) {
+      const fileHandle = await dirHandle.getFileHandle(ERROR_LOG_FILENAME, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(errorLogText);
+      await writable.close();
+    }
+    return dirHandle.name;
+  }
+
+  // ============================================================================
+  // 12. 미리보기 그리드 / 모달 (선택 기능: 변환 결과 미리보기)
+  // ============================================================================
+
+  /** 이전에 생성한 미리보기 objectURL을 모두 해제한다 (메모리 누수 방지). */
+  function revokePreviewUrls() {
+    for (const url of state.previewUrls) URL.revokeObjectURL(url);
+    state.previewUrls = [];
+  }
+
+  /** 변환 결과(state.lastResults)를 바탕으로 미리보기 썸네일 그리드를 만든다. */
+  function renderPreviewGrid() {
+    revokePreviewUrls();
+    dom.previewGrid.innerHTML = '';
+
+    state.lastResults.forEach((result, index) => {
+      const url = URL.createObjectURL(result.blob);
+      state.previewUrls.push(url);
+
+      const tile = document.createElement('div');
+      tile.className = 'preview-tile';
+      tile.dataset.index = String(index);
+      tile.innerHTML = `
+        <img src="${url}" alt="${escapeHtml(result.filename)}" loading="lazy" />
+        <span class="preview-tile__name">${escapeHtml(result.filename)}</span>
+        <button type="button" class="preview-tile__dl" data-action="preview-download" data-index="${index}" aria-label="${escapeHtml(result.filename)} 다운로드">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><path d="M10 3V13M10 13L6.5 9.5M10 13L13.5 9.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 15.5V16.5C3.5 17.0523 3.94772 17.5 4.5 17.5H15.5C16.0523 17.5 16.5 17.0523 16.5 16.5V15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      `;
+      dom.previewGrid.appendChild(tile);
+    });
+  }
+
+  /** 미리보기 모달을 특정 인덱스의 이미지로 연다. */
+  function openPreviewModal(index) {
+    if (index < 0 || index >= state.lastResults.length) return;
+    state.previewIndex = index;
+    const result = state.lastResults[index];
+    const url = state.previewUrls[index];
+    dom.previewModalImg.src = url;
+    dom.previewModalImg.alt = result.filename;
+    dom.previewModalCaption.textContent = `${result.filename} (${index + 1} / ${state.lastResults.length})`;
+    dom.previewModal.hidden = false;
+    dom.previewModalPrev.disabled = state.lastResults.length <= 1;
+    dom.previewModalNext.disabled = state.lastResults.length <= 1;
+    dom.previewModalClose.focus();
+  }
+
+  /** 미리보기 모달을 닫는다. */
+  function closePreviewModal() {
+    dom.previewModal.hidden = true;
+    dom.previewModalImg.src = '';
+  }
+
+  /** 미리보기 모달에서 이전/다음 이미지로 이동한다 (delta: -1 또는 +1). */
+  function stepPreviewModal(delta) {
+    const total = state.lastResults.length;
+    if (total === 0) return;
+    const next = (state.previewIndex + delta + total) % total;
+    openPreviewModal(next);
+  }
+
+  // ============================================================================
+  // 13. 변환 실행 제어 (Main Orchestration)
+  // startConversion() / cancelConversion() / resetApp()
+  // ============================================================================
+
+  /** UI를 "변환 중" 상태로 잠그거나 풀어준다 (관련 입력/버튼 비활성화). */
+  function setUiBusy(isBusy) {
+    state.isConverting = isBusy;
+    dom.startBtn.disabled = isBusy;
+    dom.cancelBtn.disabled = !isBusy;
+    dom.resetBtn.disabled = isBusy;
+    dom.modeFilesBtn.disabled = isBusy;
+    dom.modeFolderBtn.disabled = isBusy;
+    dom.selectFilesBtn.disabled = isBusy;
+    dom.selectFolderBtn.disabled = isBusy;
+    dom.dpiSelect.disabled = isBusy;
+    dom.qualityRange.disabled = isBusy;
+    dom.rangeEnabledCheckbox.disabled = isBusy;
+    dom.rangeInput.disabled = isBusy || !state.rangeEnabled;
+    updateFileListSummary(); // 목록 삭제/선택 제거 버튼의 disabled 상태도 함께 갱신
+  }
+
+  /**
+   * 변환 시작: "변환 시작" 버튼 클릭 시 실행되는 메인 오케스트레이션 함수.
+   * 흐름: 입력 확인 → DPI/페이지 범위 검증 → 각 PDF 사전 검사(페이지 수/손상/비밀번호) →
+   *       전체 대상 페이지 수 계산 → 순차 변환(파일 단위 → 페이지 단위) → 결과 집계 및 표시.
+   * 브라우저 메모리/UI 반응성을 고려해 페이지는 기본적으로 순차 처리한다 (요구사항 10번 참고).
+   */
+  async function startConversion() {
+    if (state.isConverting) return; // 이중 시작 방지
+
+    const jobEntries = getCurrentFiles();
+    if (jobEntries.length === 0) {
+      showToast('변환할 PDF 파일을 선택하세요.', 'warning');
+      return;
+    }
+
+    // 페이지 범위는 개별 파일 모드 + 체크박스 활성화 시에만 적용된다.
+    let rangePages = null;
+    const rangeApplies = state.mode === 'files' && state.rangeEnabled;
+    if (rangeApplies) {
+      const result = validatePageRange(dom.rangeInput.value);
+      if (!result.valid) {
+        showToast(`페이지 범위가 올바르지 않습니다. ${result.error}`, 'error');
+        return;
+      }
+      rangePages = result.pages;
+    }
+
+    const dpi = state.dpi;
+    const quality = state.quality;
+
+    // ---- 초기화 ----
+    clearResultsUi();
+    state.errorLogs = [];
+    state.cancelRequested = false;
+    setUiBusy(true);
+    setStatusLabel('변환 중', 'converting');
+
+    const rangeNote = rangePages ? `, 페이지 범위: ${dom.rangeInput.value.trim()}` : '';
+    appendLog(`=== 변환 시작: ${jobEntries.length}개 파일, DPI ${dpi}${rangeNote} ===`);
+
+    // ---- 1단계: 사전 검사 (페이지 수 확인, 손상/비밀번호 PDF 판별, 페이지 범위 유효성 대조) ----
+    const filePageIndices = new Map(); // entry.id -> number[](0-indexed) | null(전체 페이지)
+    const filePageCounts = new Map();  // entry.id -> 변환 대상 페이지 수
+
+    for (const entry of jobEntries) {
+      if (state.cancelRequested) {
+        entry.status = 'skipped';
+        renderFileList();
+        continue;
+      }
+
+      entry.status = 'checking';
+      entry.errorMessage = null;
+      entry.pageCount = null;
+      entry.targetPageCount = null;
+      renderFileList();
+      await yieldToMain();
+
+      const { ok, pdfDoc, error } = await validatePdf(entry);
+      if (!ok) {
+        addErrorLog(entry.name, null, error);
+        entry.status = 'error';
+        renderFileList();
+        continue;
+      }
+
+      appendLog(`[검사] ${entry.name} - ${entry.pageCount}페이지`);
+      const nPages = entry.pageCount;
+
+      if (rangePages) {
+        const indices = rangePages.filter((p) => p >= 1 && p <= nPages).map((p) => p - 1);
+        const outOfRange = rangePages.filter((p) => p > nPages);
+        if (outOfRange.length > 0) {
+          addErrorLog(entry.name, outOfRange.join(', '), `요청한 페이지가 존재하지 않음 (총 ${nPages}페이지)`);
+        }
+        if (indices.length === 0) {
+          addErrorLog(entry.name, null, '지정한 범위에 해당하는 페이지가 없어 건너뜀');
+          entry.status = 'skipped';
+          entry.targetPageCount = 0;
+          pdfDoc.destroy();
+          renderFileList();
+          continue;
+        }
+        filePageIndices.set(entry.id, indices);
+        filePageCounts.set(entry.id, indices.length);
+        entry.targetPageCount = indices.length;
+      } else {
+        filePageIndices.set(entry.id, null);
+        filePageCounts.set(entry.id, nPages);
+        entry.targetPageCount = nPages;
+      }
+
+      entry.status = 'ready';
+      pdfDoc.destroy(); // 사전 검사만 마치고 메모리를 반납한다 (실제 변환 시 다시 로드).
+      renderFileList();
+    }
+
+    const validEntries = jobEntries.filter((e) => filePageIndices.has(e.id));
+    const totalPages = validEntries.reduce((sum, e) => sum + filePageCounts.get(e.id), 0);
+
+    if (totalPages === 0) {
+      if (state.cancelRequested) {
+        appendLog('=== 취소됨: 사전 검사 중 취소되어 변환된 파일이 없습니다 ===');
+        setStatusLabel('취소됨', 'warning');
+        showToast('취소되었습니다.', 'warning');
+      } else {
+        showToast('변환 가능한 PDF 페이지가 없습니다.', 'warning');
+        appendLog('변환 가능한 PDF 페이지가 없습니다.', 'error');
+        setStatusLabel('대기 중', 'idle');
+      }
+      setCurrentFileLabel('');
+      setUiBusy(false);
+      return;
+    }
+
+    // ---- 2단계: 진행률 초기화 ----
+    let processedPages = 0;
+    updateProgress(0, totalPages);
+    dom.progressBarFill.classList.add('is-active');
+
+    // ---- 3단계: 순차 변환 (파일 단위 → 페이지 단위) ----
+    const usedNames = new Set(); // 배치 전체가 공유하는 출력 파일명 집합 (충돌 방지)
+    const results = [];
+    let successFileCount = 0;
+
+    for (const entry of validEntries) {
+      if (state.cancelRequested) {
+        entry.status = 'skipped';
+        addErrorLog(entry.name, null, '취소로 인해 시작되지 않음');
+        renderFileList();
+        continue;
+      }
+
+      entry.status = 'converting';
+      setCurrentFileLabel(entry.name);
+      renderFileList();
+
+      const pageIndices = filePageIndices.get(entry.id); // 0-indexed 배열 또는 null(전체)
+
+      try {
+        const { results: pageResults } = await convertPdf(entry, pageIndices, {
+          dpi,
+          quality,
+          usedNames,
+          onPageProgress: (current, total) => {
+            processedPages += 1;
+            updateProgress(processedPages, totalPages);
+            appendLog(`[변환] ${entry.name} - ${current}/${total} 페이지`);
+          },
+        });
+        results.push(...pageResults);
+
+        if (pageResults.length > 0) {
+          successFileCount += 1;
+          entry.status = state.cancelRequested ? 'partial' : 'done';
+        } else {
+          entry.status = 'error';
+          entry.errorMessage = '모든 페이지 변환에 실패했습니다.';
+        }
+        appendLog(`[완료] ${entry.name} - ${pageResults.length}페이지 성공`, 'done');
+      } catch (fileErr) {
+        const msg = fileErr && fileErr.message ? fileErr.message : String(fileErr);
+        addErrorLog(entry.name, null, msg);
+        entry.status = 'error';
+        entry.errorMessage = msg;
+      }
+
+      renderFileList();
+
+      if (state.cancelRequested) break;
+    }
+
+    // ---- 4단계: 결과 집계 및 표시 ----
+    dom.progressBarFill.classList.remove('is-active');
+    const wasCancelled = state.cancelRequested;
+    const totalFiles = jobEntries.length;
+    const failFiles = totalFiles - successFileCount;
+    const successPages = results.length;
+    const failPages = totalPages - successPages;
+
+    state.lastResults = results;
+    state.lastZipBlob = null; // ZIP은 다운로드 버튼 클릭 시점에 지연 생성한다.
+
+    renderResultSummary({ totalFiles, successFiles: successFileCount, failFiles, totalPages, successPages, failPages });
+
+    dom.downloadErrorLogBtn.hidden = state.errorLogs.length === 0;
+    dom.saveFolderBtn.hidden = !state.fileSystemAccessSupported || results.length === 0;
+    dom.togglePreviewBtn.hidden = results.length === 0;
+    dom.togglePreviewBtn.textContent = '미리보기 보기';
+    dom.previewGrid.hidden = true;
+
+    if (wasCancelled) {
+      appendLog(`=== 취소됨: ${successFileCount}/${totalFiles}개 파일 처리 완료 ===`);
+      setStatusLabel('취소됨', 'warning');
+      showToast(`취소되었습니다. ${successFileCount}/${totalFiles}개 파일 처리 완료.`, 'warning');
+    } else if (state.errorLogs.length > 0) {
+      appendLog(`=== 완료(일부 실패): ${successFileCount}/${totalFiles}개 파일 성공 ===`);
+      setStatusLabel('완료(일부 실패)', 'warning');
+      showToast('일부 파일/페이지에서 오류가 발생했습니다. 오류 로그를 확인하세요.', 'warning');
+    } else {
+      appendLog(`=== 완료: ${totalFiles}개 파일 모두 성공 ===`);
+      setStatusLabel('완료', 'done');
+    }
+
+    setCurrentFileLabel('');
+    setUiBusy(false);
+  }
+
+  /** "취소" 버튼 클릭 시 실행: 취소 플래그를 세우고, 현재 페이지 처리가 끝나면 이후 작업을 중단시킨다. */
+  function cancelConversion() {
+    if (!state.isConverting || state.cancelRequested) return;
+    state.cancelRequested = true;
+    dom.cancelBtn.disabled = true;
+    setStatusLabel('취소 중...', 'warning');
+    dom.progressText.textContent = '취소 중... 진행 중인 페이지 완료 후 중단됩니다';
+    appendLog('>> 사용자가 취소를 요청했습니다. 진행 중인 파일만 마무리합니다.');
+  }
+
+  /** 결과 카드/미리보기/진행률을 새 변환을 시작하기 전 상태로 되돌린다. */
+  function clearResultsUi() {
+    dom.resultCard.hidden = true;
+    dom.resultGrid.innerHTML = '';
+    dom.previewGrid.hidden = true;
+    dom.previewGrid.innerHTML = '';
+    revokePreviewUrls();
+    state.lastResults = [];
+    state.lastZipBlob = null;
+    updateProgress(0, 0);
+    dom.progressBarFill.classList.remove('is-active');
+  }
+
+  /** "초기화" 버튼: 파일 목록/설정/로그/결과를 모두 최초 상태로 되돌린다. */
+  function resetApp() {
+    if (state.isConverting) return;
+
+    state.filesByMode.files = [];
+    state.filesByMode.folder = [];
+    state.selectedIds.clear();
+    state.errorLogs = [];
+    state.cancelRequested = false;
+    state.mode = 'files';
+    state.dpi = DEFAULT_DPI;
+    state.quality = DEFAULT_QUALITY;
+    state.rangeEnabled = false;
+
+    dom.dpiSelect.value = String(DEFAULT_DPI);
+    dom.qualityRange.value = String(DEFAULT_QUALITY);
+    dom.qualityValue.textContent = DEFAULT_QUALITY.toFixed(2);
+    dom.rangeEnabledCheckbox.checked = false;
+    dom.rangeInput.value = '';
+    dom.rangeInput.disabled = true;
+
+    updateModeDependentUI();
+    renderFileList();
+    clearResultsUi();
+    clearLogPanel();
+    setStatusLabel('대기 중', 'idle');
+    setCurrentFileLabel('');
+    dom.progressText.textContent = '진행 상황: 대기 중';
+
+    showToast('초기화되었습니다.', 'info');
+  }
+
+  // ============================================================================
+  // 14. DOM 참조 수집 / 이벤트 연결 / 앱 초기화
+  // ============================================================================
+
+  const dom = {};
+
+  /** 반복적으로 사용하는 DOM 요소 참조를 한 번에 수집해 dom 객체에 담는다. */
+  function initDomRefs() {
+    const ids = [
+      'themeToggleBtn', 'dropZone', 'dropZoneFileInput',
+      'modeFilesBtn', 'modeFolderBtn',
+      'selectFilesBtn', 'selectFolderBtn', 'removeSelectedBtn', 'clearFilesBtn',
+      'filesInput', 'folderInput', 'folderModeHint',
+      'fileListSummary', 'fileList',
+      'dpiSelect', 'qualityRange', 'qualityValue',
+      'rangeCheckboxField', 'rangeEnabledCheckbox', 'rangeInputField', 'rangeInput',
+      'startBtn', 'cancelBtn',
+      'statusLabel', 'currentFileLabel', 'progressBar', 'progressBarFill', 'progressText',
+      'resultCard', 'resultGrid', 'downloadZipBtn', 'saveFolderBtn', 'downloadErrorLogBtn',
+      'togglePreviewBtn', 'previewGrid',
+      'clearLogBtn', 'logPanel',
+      'resetBtn',
+      'previewModal', 'previewModalBackdrop', 'previewModalClose', 'previewModalImg',
+      'previewModalCaption', 'previewModalPrev', 'previewModalDownload', 'previewModalNext',
+      'toastContainer',
+    ];
+    for (const id of ids) dom[id] = byId(id);
+  }
+
+  /** 라이트/다크 테마를 전환한다 (사양에 따라 별도 저장 없이 새로고침 시 라이트 테마로 시작한다). */
+  function toggleTheme() {
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+  }
+
+  /** 모든 이벤트 리스너를 연결한다. */
+  function attachEventListeners() {
+    // 테마 토글
+    dom.themeToggleBtn.addEventListener('click', toggleTheme);
+
+    // 드롭존: 클릭으로도 파일을 선택할 수 있어야 한다 (드래그 앤 드롭 미사용 사용자 대응, 접근성).
+    dom.dropZone.addEventListener('click', () => dom.dropZoneFileInput.click());
+    dom.dropZone.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        dom.dropZoneFileInput.click();
+      }
+    });
+    dom.dropZone.addEventListener('dragenter', handleDropZoneDragEnter);
+    dom.dropZone.addEventListener('dragover', handleDropZoneDragOver);
+    dom.dropZone.addEventListener('dragleave', handleDropZoneDragLeave);
+    dom.dropZone.addEventListener('drop', handleDropZoneDrop);
+    dom.dropZoneFileInput.addEventListener('change', handleFilesInputChange);
+
+    // 입력 방식 토글 (개별 파일 ↔ 폴더)
+    dom.modeFilesBtn.addEventListener('click', () => setMode('files'));
+    dom.modeFolderBtn.addEventListener('click', () => setMode('folder'));
+
+    // 파일/폴더 선택 버튼
+    dom.selectFilesBtn.addEventListener('click', () => dom.filesInput.click());
+    dom.selectFolderBtn.addEventListener('click', () => dom.folderInput.click());
+    dom.filesInput.addEventListener('change', handleFilesInputChange);
+    dom.folderInput.addEventListener('change', handleFolderInputChange);
+
+    // 선택 항목 제거 / 목록 전체 삭제
+    dom.removeSelectedBtn.addEventListener('click', () => {
+      const removed = removeSelectedFiles();
+      if (removed > 0) appendLog(`[대기] 선택한 파일 ${removed}개를 목록에서 제거했습니다.`);
+      renderFileList();
+    });
+    dom.clearFilesBtn.addEventListener('click', () => {
+      const count = getCurrentFiles().length;
+      clearFiles();
+      if (count > 0) appendLog(`[대기] 파일 목록을 모두 삭제했습니다 (${count}개).`);
+      renderFileList();
+    });
+
+    // 파일 목록: 체크박스 선택 / 개별 제거 버튼 (동적으로 다시 그려지므로 이벤트 위임 사용)
+    dom.fileList.addEventListener('change', (event) => {
+      const checkbox = event.target.closest('.file-row__check');
+      if (!checkbox) return;
+      const row = event.target.closest('.file-row');
+      const id = row && row.dataset.id;
+      if (!id) return;
+      if (checkbox.checked) state.selectedIds.add(id);
+      else state.selectedIds.delete(id);
+      row.classList.toggle('is-active', checkbox.checked);
+      updateFileListSummary();
+    });
+    dom.fileList.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-action="remove-file"]');
+      if (!btn) return;
+      removeFile(btn.dataset.id);
+      renderFileList();
+    });
+
+    // 변환 설정
+    dom.dpiSelect.addEventListener('change', () => {
+      state.dpi = Number(dom.dpiSelect.value) || DEFAULT_DPI;
+    });
+    dom.qualityRange.addEventListener('input', () => {
+      state.quality = Number(dom.qualityRange.value);
+      dom.qualityValue.textContent = state.quality.toFixed(2);
+    });
+    dom.rangeEnabledCheckbox.addEventListener('change', () => {
+      state.rangeEnabled = dom.rangeEnabledCheckbox.checked;
+      dom.rangeInput.disabled = !state.rangeEnabled;
+      updateModeDependentUI();
+      if (state.rangeEnabled) dom.rangeInput.focus();
+    });
+
+    // 실행 버튼
+    dom.startBtn.addEventListener('click', startConversion);
+    dom.cancelBtn.addEventListener('click', cancelConversion);
+    dom.resetBtn.addEventListener('click', resetApp);
+
+    // 결과 다운로드: ZIP
+    dom.downloadZipBtn.addEventListener('click', async () => {
+      dom.downloadZipBtn.disabled = true;
+      try {
+        if (!state.lastZipBlob) {
+          const errorLogText = generateErrorLog();
+          state.lastZipBlob = await createZip(state.lastResults, errorLogText || null);
+        }
+        downloadZip(state.lastZipBlob, ZIP_FILENAME);
+        appendLog(`[완료] ${ZIP_FILENAME} 다운로드를 시작했습니다.`, 'done');
+      } catch (err) {
+        showToast('ZIP 생성 중 오류가 발생했습니다.', 'error');
+      } finally {
+        dom.downloadZipBtn.disabled = false;
+      }
+    });
+
+    // 결과 다운로드: 폴더에 직접 저장 (File System Access API 지원 브라우저 한정)
+    dom.saveFolderBtn.addEventListener('click', async () => {
+      dom.saveFolderBtn.disabled = true;
+      try {
+        const errorLogText = generateErrorLog();
+        const folderName = await saveResultsToFolder(state.lastResults, errorLogText || null);
+        showToast(`"${folderName}" 폴더에 저장했습니다.`, 'info');
+        appendLog(`[완료] 폴더에 직접 저장했습니다: ${folderName}`, 'done');
+      } catch (err) {
+        if (!err || err.name !== 'AbortError') {
+          // AbortError는 사용자가 폴더 선택 대화상자를 취소한 경우이므로 조용히 무시한다.
+          showToast('폴더 저장 중 오류가 발생했습니다. ZIP 다운로드를 이용해 주세요.', 'error');
+        }
+      } finally {
+        dom.saveFolderBtn.disabled = false;
+      }
+    });
+
+    // 결과 다운로드: 오류 로그
+    dom.downloadErrorLogBtn.addEventListener('click', () => {
+      const text = generateErrorLog();
+      if (!text) return;
+      downloadBlob(new Blob([text], { type: 'text/plain;charset=utf-8' }), ERROR_LOG_FILENAME);
+    });
+
+    // 미리보기 그리드 토글 및 개별 다운로드/확대보기
+    dom.togglePreviewBtn.addEventListener('click', () => {
+      const willShow = dom.previewGrid.hidden;
+      if (willShow && dom.previewGrid.children.length === 0) renderPreviewGrid();
+      dom.previewGrid.hidden = !willShow;
+      dom.togglePreviewBtn.textContent = willShow ? '미리보기 숨기기' : '미리보기 보기';
+    });
+    dom.previewGrid.addEventListener('click', (event) => {
+      const dlBtn = event.target.closest('[data-action="preview-download"]');
+      if (dlBtn) {
+        const idx = Number(dlBtn.dataset.index);
+        const result = state.lastResults[idx];
+        if (result) downloadJpg(result.blob, result.filename);
+        return;
+      }
+      const tile = event.target.closest('.preview-tile');
+      if (tile) openPreviewModal(Number(tile.dataset.index));
+    });
+
+    // 미리보기 모달
+    dom.previewModalClose.addEventListener('click', closePreviewModal);
+    dom.previewModalBackdrop.addEventListener('click', closePreviewModal);
+    dom.previewModalPrev.addEventListener('click', () => stepPreviewModal(-1));
+    dom.previewModalNext.addEventListener('click', () => stepPreviewModal(1));
+    dom.previewModalDownload.addEventListener('click', () => {
+      const result = state.lastResults[state.previewIndex];
+      if (result) downloadJpg(result.blob, result.filename);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (dom.previewModal.hidden) return;
+      if (event.key === 'Escape') closePreviewModal();
+      else if (event.key === 'ArrowLeft') stepPreviewModal(-1);
+      else if (event.key === 'ArrowRight') stepPreviewModal(1);
+    });
+
+    // 로그
+    dom.clearLogBtn.addEventListener('click', clearLogPanel);
+
+    // 변환 중 실수로 탭을 닫거나 새로고침하는 것을 방지한다.
+    window.addEventListener('beforeunload', (event) => {
+      if (state.isConverting) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
+  }
+
+  /** 앱의 초기 화면 상태를 반영한다. */
+  function initUiState() {
+    updateModeDependentUI();
+    renderFileList();
+    updateProgress(0, 0);
+    setStatusLabel('대기 중', 'idle');
+    dom.qualityValue.textContent = state.quality.toFixed(2);
+
+    // File System Access API 미지원 브라우저에서는 "폴더에 저장" 버튼을 아예 노출하지 않는다.
+    if (!state.fileSystemAccessSupported) {
+      dom.saveFolderBtn.hidden = true;
+    }
+
+    // CDN 라이브러리가 정상적으로 로드되었는지 확인하고, 실패 시 명확하게 안내한다.
+    if (!window.pdfjsLib) {
+      showToast('PDF.js 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.', 'error');
+      appendLog('[오류] PDF.js 라이브러리 로드 실패 - CDN 접속 상태를 확인하세요.');
+      dom.startBtn.disabled = true;
+    }
+    if (!window.JSZip) {
+      showToast('JSZip 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침해 주세요.', 'error');
+      appendLog('[오류] JSZip 라이브러리 로드 실패 - CDN 접속 상태를 확인하세요.');
+    }
+  }
+
+  /** 앱 진입점: DOM 참조 수집 → 이벤트 연결 → 초기 상태 반영 순으로 실행한다. */
+  function initApp() {
+    initDomRefs();
+    attachEventListeners();
+    initUiState();
+  }
+
+  initApp();
+  </script>
+</body>
+</html>
