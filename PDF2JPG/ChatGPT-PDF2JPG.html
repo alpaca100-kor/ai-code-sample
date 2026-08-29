@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF → JPG 변환기</title>
+
+<!-- PDF.js / JSZip CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.min.mjs" type="module"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f5f7fa;color:#202124;font-family:"Segoe UI","Malgun Gothic","Noto Sans KR",Arial,sans-serif}
+.app{max-width:1050px;margin:28px auto;padding:0 18px 40px}
+h1{margin:0 0 6px;font-size:28px}
+.subtitle{margin:0 0 18px;color:#667085;font-size:14px}
+.card{background:#fff;border:1px solid #d9dee5;border-radius:14px;padding:18px;margin:12px 0;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.dropzone{border:2px dashed #aab3bd;border-radius:12px;padding:30px;text-align:center;background:#fafbfc;cursor:pointer}
+.dropzone.drag{border-color:#2563eb;background:#eef5ff}
+.dropzone strong{display:block;margin-bottom:5px}
+.dropzone span{font-size:13px;color:#667085}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button{border:1px solid #c8ced6;background:#fff;border-radius:8px;padding:9px 14px;cursor:pointer}
+button:hover:not(:disabled){background:#f0f3f6}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.primary{background:#2563eb;color:#fff;border-color:#2563eb}
+button.danger{color:#c62828}
+.hidden{display:none!important}
+.section-title{font-size:15px;font-weight:700;margin:0 0 12px}
+.modes{display:flex;gap:22px;margin-bottom:12px}
+.file-list{border:1px solid #d9dee5;border-radius:9px;max-height:220px;overflow:auto}
+.empty{padding:14px;color:#667085;font-size:13px}
+.file-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid #edf0f3}
+.file-row:last-child{border-bottom:0}
+.file-name{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:12px;color:#667085}
+.settings{display:grid;grid-template-columns:160px 1fr 280px;gap:14px;margin-top:15px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:700}
+input[type=text],select{width:100%;border:1px solid #c8ced6;border-radius:8px;padding:9px}
+input[type=range]{width:100%}
+.note{font-size:12px;color:#667085;line-height:1.55;margin-top:9px}
+.progress-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px}
+.progress{height:12px;background:#e8ebef;border-radius:99px;overflow:hidden}
+.progress-bar{height:100%;width:0;background:#2563eb;transition:width .12s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#f6f8fa;border-radius:10px;padding:12px}
+.stat span{font-size:12px;color:#667085}
+.stat b{display:block;font-size:22px;margin-top:2px}
+.log{height:200px;background:#101828;color:#d0d5dd;border-radius:9px;padding:11px;overflow:auto;white-space:pre-wrap;font:12px/1.55 Consolas,monospace}
+footer{font-size:11px;color:#667085;line-height:1.6}
+@media(max-width:760px){.settings{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+
+<body>
+<div class="app">
+<h1>PDF → JPG 변환기</h1>
+<p class="subtitle">PDF를 브라우저에서 JPG 이미지로 변환합니다. PDF 파일은 서버로 업로드되지 않습니다.</p>
+
+<section class="card">
+<div id="dropzone" class="dropzone">
+<strong>PDF 파일을 여기에 끌어다 놓으세요</strong>
+<span>여러 PDF 파일을 동시에 추가할 수 있습니다.</span>
+</div>
+<input id="fileInput" class="hidden" type="file" accept=".pdf,application/pdf" multiple>
+<input id="folderInput" class="hidden" type="file" accept=".pdf,application/pdf" webkitdirectory directory multiple>
+
+<div class="toolbar">
+<button id="chooseFiles" class="primary">PDF 파일 선택</button>
+<button id="chooseFolder">폴더 선택</button>
+<button id="clearFiles">목록 전체 삭제</button>
+</div>
+</section>
+
+<section class="card">
+<h2 class="section-title">변환 설정</h2>
+
+<div class="modes">
+<label><input type="radio" name="mode" value="folder" checked> 폴더 전체 변환</label>
+<label><input type="radio" name="mode" value="files"> 개별 파일 선택</label>
+</div>
+
+<div id="folderInfo" class="note">
+폴더 선택 버튼을 사용하면 해당 폴더의 PDF 파일을 일괄 추가합니다.
+</div>
+
+<div id="fileMode" class="hidden">
+<div id="fileList" class="file-list">
+<div class="empty">선택된 PDF가 없습니다.</div>
+</div>
+<div class="toolbar">
+<button id="removeSelected">선택 항목 제거</button>
+</div>
+</div>
+
+<div class="settings">
+<div class="field">
+<label for="dpi">DPI</label>
+<select id="dpi">
+<option value="72">72</option>
+<option value="150">150</option>
+<option value="200">200</option>
+<option value="300" selected>300</option>
+<option value="400">400</option>
+</select>
+</div>
+
+<div class="field">
+<label for="quality">JPG 품질: <span id="qualityValue">0.90</span></label>
+<input id="quality" type="range" min="0.10" max="1" step="0.05" value="0.9">
+</div>
+
+<div class="field">
+<label for="pageRange">페이지 범위</label>
+<input id="pageRange" type="text" placeholder="예: 1-3,5,7-9">
+</div>
+</div>
+
+<div class="note">
+페이지 범위를 비워두면 전체 페이지를 변환합니다.
+</div>
+</section>
+
+<section class="card">
+<h2 class="section-title">변환 진행 상황</h2>
+<div class="progress-head">
+<span id="status">PDF.js 로딩 중...</span>
+<span id="counter">0 / 0 페이지</span>
+</div>
+<div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+
+<div class="toolbar">
+<button id="start" class="primary" disabled>변환 시작</button>
+<button id="cancel" class="danger" disabled>취소</button>
+<button id="downloadZip" disabled>ZIP 다운로드</button>
+<button id="downloadLog" disabled>error_log.txt</button>
+</div>
+</section>
+
+<section class="card">
+<h2 class="section-title">처리 결과</h2>
+<div class="stats">
+<div class="stat"><span>PDF</span><b id="statFiles">0</b></div>
+<div class="stat"><span>성공 페이지</span><b id="statPages">0</b></div>
+<div class="stat"><span>오류 항목</span><b id="statErrors">0</b></div>
+<div class="stat"><span>실패 PDF</span><b id="statBadFiles">0</b></div>
+</div>
+</section>
+
+<section class="card">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<h2 class="section-title" style="margin:0">처리 로그</h2>
+<button id="clearLog">로그 지우기</button>
+</div>
+<div id="log" class="log" style="margin-top:10px"></div>
+</section>
+
+<footer>
+PDF.js 5.4.54와 JSZip 3.10.1을 CDN으로 불러옵니다.
+인터넷 연결이 없거나 CDN 접근이 차단된 환경에서는 변환 기능을 사용할 수 없습니다.
+</footer>
+</div>
+
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.min.mjs";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.54/pdf.worker.min.mjs";
+
+window.pdfjsLib = pdfjsLib;
+
+window.dispatchEvent(new Event("pdfjs-ready"));
+</script>
+
+<script>
+const state={
+files:[],
+selected:new Set(),
+running:false,
+cancelled:false,
+total:0,
+done:0,
+success:0,
+bad:0,
+errors:[],
+outputs:[],
+zipBlob:null,
+logBlob:null
+};
+
+const $=id=>document.getElementById(id);
+
+function log(text){
+const t=new Date().toLocaleTimeString("ko-KR",{hour12:false});
+$("log").textContent+=`[${t}] ${text}\n`;
+$("log").scrollTop=$("log").scrollHeight;
+}
+
+function updateStats(){
+$("statFiles").textContent=state.files.length;
+$("statPages").textContent=state.success;
+$("statErrors").textContent=state.errors.length;
+$("statBadFiles").textContent=state.bad;
+}
+
+function progress(done,total){
+state.done=done;
+state.total=total;
+$("counter").textContent=`${done} / ${total} 페이지`;
+$("progressBar").style.width=total?`${done/total*100}%`:"0%";
+}
+
+function bytes(n){
+if(n<1024)return `${n} B`;
+const units=["KB","MB","GB"];
+let i=-1;
+do{n/=1024;i++}while(n>=1024&&i<units.length-1);
+return `${n.toFixed(1)} ${units[i]}`;
+}
+
+function addFiles(files){
+for(const file of [...files]){
+if(!file.name.toLowerCase().endsWith(".pdf")){
+log(`[제외] ${file.name}`);
+continue;
+}
+const key=`${file.name}|${file.size}|${file.lastModified}`;
+if(state.files.some(x=>x.key===key))continue;
+state.files.push({file,key});
+}
+renderFiles();
+updateStats();
+log(`>> PDF ${state.files.length}개`);
+}
+
+function renderFiles(){
+const box=$("fileList");
+box.innerHTML="";
+if(!state.files.length){
+box.innerHTML='<div class="empty">선택된 PDF가 없습니다.</div>';
+return;
+}
+state.files.forEach((item,i)=>{
+const row=document.createElement("div");
+row.className="file-row";
+
+const check=document.createElement("input");
+check.type="checkbox";
+check.checked=state.selected.has(i);
+check.onchange=()=>check.checked?state.selected.add(i):state.selected.delete(i);
+
+const name=document.createElement("div");
+name.className="file-name";
+name.textContent=item.file.name;
+
+const meta=document.createElement("div");
+meta.className="file-meta";
+meta.textContent=bytes(item.file.size);
+
+row.append(check,name,meta);
+box.appendChild(row);
+});
+}
+
+function parseRange(text){
+if(!text.trim())return null;
+const set=new Set();
+
+for(const partRaw of text.split(",")){
+const part=partRaw.trim();
+if(!part)continue;
+
+if(part.includes("-")){
+const [a,b]=part.split("-").map(Number);
+if(!Number.isInteger(a)||!Number.isInteger(b)||a<1||b<a)
+throw new Error(`잘못된 범위: ${part}`);
+for(let i=a;i<=b;i++)set.add(i);
+}else{
+const p=Number(part);
+if(!Number.isInteger(p)||p<1)throw new Error(`잘못된 페이지: ${part}`);
+set.add(p);
+}
+}
+return [...set].sort((a,b)=>a-b);
+}
+
+async function openPdf(file){
+const data=new Uint8Array(await file.arrayBuffer());
+return await window.pdfjsLib.getDocument({data}).promise;
+}
+
+async function renderPage(pdf,pageNo,dpi,quality){
+const page=await pdf.getPage(pageNo);
+const viewport=page.getViewport({scale:dpi/72});
+
+const canvas=document.createElement("canvas");
+canvas.width=Math.ceil(viewport.width);
+canvas.height=Math.ceil(viewport.height);
+
+const ctx=canvas.getContext("2d",{alpha:false});
+await page.render({canvasContext:ctx,viewport}).promise;
+
+const blob=await new Promise((resolve,reject)=>{
+canvas.toBlob(
+b=>b?resolve(b):reject(new Error("JPG 생성 실패")),
+"image/jpeg",
+quality
+);
+});
+
+canvas.width=1;
+canvas.height=1;
+return blob;
+}
+
+function fileName(pdfName,page,total,partial){
+const base=pdfName.replace(/\.pdf$/i,"");
+if(partial)return`${base}_p${page}.jpg`;
+return total===1?`${base}.jpg`:`${base}_${page}.jpg`;
+}
+
+function download(blob,name){
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");
+a.href=url;
+a.download=name;
+document.body.appendChild(a);
+a.click();
+a.remove();
+setTimeout(()=>URL.revokeObjectURL(url),1500);
+}
+
+async function convert(){
+if(state.running)return;
+if(!state.files.length){
+alert("PDF 파일을 선택하세요.");
+return;
+}
+
+let range;
+try{
+range=parseRange($("pageRange").value);
+}catch(e){
+alert(e.message);
+return;
+}
+
+state.running=true;
+state.cancelled=false;
+state.errors=[];
+state.outputs=[];
+state.total=0;
+state.done=0;
+state.success=0;
+state.bad=0;
+state.zipBlob=null;
+state.logBlob=null;
+
+$("start").disabled=true;
+$("cancel").disabled=false;
+$("downloadZip").disabled=true;
+$("downloadLog").disabled=true;
+
+const dpi=Number($("dpi").value);
+const quality=Number($("quality").value);
+
+$("status").textContent="PDF 분석 중...";
+log(`=== 변환 시작 / DPI ${dpi} / JPG 품질 ${quality.toFixed(2)} ===`);
+
+const jobs=[];
+
+for(const item of state.files){
+if(state.cancelled)break;
+
+try{
+const pdf=await openPdf(item.file);
+const pages=range?
+range.filter(p=>p<=pdf.numPages):
+Array.from({length:pdf.numPages},(_,i)=>i+1);
+
+for(const p of range||[]){
+if(p>pdf.numPages){
+state.errors.push(`${item.file.name}: ${p}페이지 없음`);
+}
+}
+
+if(!pages.length){
+state.bad++;
+await pdf.destroy();
+continue;
+}
+
+state.total+=pages.length;
+jobs.push({item,pages,total:pdf.numPages});
+
+await pdf.destroy();
+
+}catch(e){
+state.bad++;
+state.errors.push(`${item.file.name}: ${e.message||e}`);
+log(`[실패] ${item.file.name}: ${e.message||e}`);
+}
+}
+
+updateStats();
+progress(0,state.total);
+
+const usedNames=new Set();
+
+for(const job of jobs){
+if(state.cancelled)break;
+
+let pdf;
+
+try{
+pdf=await openPdf(job.item.file);
+
+for(const pageNo of job.pages){
+if(state.cancelled)break;
+
+$("status").textContent=
+`변환 중: ${job.item.file.name} / ${pageNo}페이지`;
+
+try{
+const blob=await renderPage(pdf,pageNo,dpi,quality);
+
+let name=fileName(
+job.item.file.name,
+pageNo,
+job.total,
+!!range
+);
+
+let original=name;
+let n=1;
+while(usedNames.has(name)){
+name=original.replace(/\.jpg$/i,`_${n++}.jpg`);
+}
+
+usedNames.add(name);
+state.outputs.push({name,blob});
+state.success++;
+
+log(`[완료] ${job.item.file.name} - ${pageNo}페이지`);
+
+}catch(e){
+state.errors.push(
+`${job.item.file.name} - ${pageNo}페이지: ${e.message||e}`
+);
+log(`[오류] ${job.item.file.name} - ${pageNo}: ${e.message||e}`);
+}
+
+state.done++;
+progress(state.done,state.total);
+updateStats();
+
+await new Promise(requestAnimationFrame);
+}
+}catch(e){
+state.bad++;
+state.errors.push(`${job.item.file.name}: ${e.message||e}`);
+}finally{
+if(pdf){
+try{await pdf.destroy()}catch(_){}
+}
+}
+}
+
+if(state.outputs.length){
+const zip=new JSZip();
+
+for(const item of state.outputs){
+zip.file(item.name,item.blob);
+}
+
+if(state.errors.length){
+zip.file("error_log.txt",state.errors.join("\n"));
+}
+
+state.zipBlob=await zip.generateAsync({
+type:"blob",
+compression:"DEFLATE",
+compressionOptions:{level:6}
+});
+
+$("downloadZip").disabled=false;
+}
+
+if(state.errors.length){
+state.logBlob=new Blob(
+[state.errors.join("\n")],
+{type:"text/plain;charset=utf-8"}
+);
+$("downloadLog").disabled=false;
+}
+
+state.running=false;
+$("start").disabled=false;
+$("cancel").disabled=true;
+
+if(state.cancelled){
+$("status").textContent="취소됨";
+log("=== 사용자가 작업을 취소했습니다. ===");
+}else if(state.errors.length){
+$("status").textContent="완료(일부 실패)";
+log("=== 완료(일부 실패) ===");
+}else{
+$("status").textContent="변환 완료";
+log("=== 모든 변환 완료 ===");
+}
+
+updateStats();
+}
+
+$("chooseFiles").onclick=()=>$("fileInput").click();
+$("chooseFolder").onclick=()=>$("folderInput").click();
+
+$("fileInput").onchange=e=>{
+addFiles(e.target.files);
+e.target.value="";
+};
+
+$("folderInput").onchange=e=>{
+addFiles(e.target.files);
+document.querySelector('input[value="folder"]').checked=true;
+$("folderInfo").classList.remove("hidden");
+$("fileMode").classList.add("hidden");
+e.target.value="";
+};
+
+$("clearFiles").onclick=()=>{
+if(state.running)return;
+state.files=[];
+state.selected.clear();
+renderFiles();
+updateStats();
+};
+
+$("removeSelected").onclick=()=>{
+if(state.running)return;
+state.files=state.files.filter((_,i)=>!state.selected.has(i));
+state.selected.clear();
+renderFiles();
+updateStats();
+};
+
+$("start").onclick=convert;
+
+$("cancel").onclick=()=>{
+state.cancelled=true;
+$("status").textContent="취소 중...";
+$("cancel").disabled=true;
+};
+
+$("downloadZip").onclick=()=>{
+if(state.zipBlob)download(state.zipBlob,"converted_files.zip");
+};
+
+$("downloadLog").onclick=()=>{
+if(state.logBlob)download(state.logBlob,"error_log.txt");
+};
+
+$("clearLog").onclick=()=>$("log").textContent="";
+
+$("quality").oninput=e=>{
+$("qualityValue").textContent=Number(e.target.value).toFixed(2);
+};
+
+document.querySelectorAll('input[name="mode"]').forEach(r=>{
+r.onchange=()=>{
+const folder=r.value==="folder"&&r.checked;
+$("folderInfo").classList.toggle("hidden",!folder);
+$("fileMode").classList.toggle("hidden",folder);
+};
+});
+
+const drop=$("dropzone");
+
+["dragenter","dragover"].forEach(e=>{
+drop.addEventListener(e,event=>{
+event.preventDefault();
+drop.classList.add("drag");
+});
+});
+
+["dragleave","drop"].forEach(e=>{
+drop.addEventListener(e,event=>{
+event.preventDefault();
+drop.classList.remove("drag");
+});
+});
+
+drop.addEventListener("drop",e=>addFiles(e.dataTransfer.files));
+
+window.addEventListener("pdfjs-ready",()=>{
+$("start").disabled=false;
+$("status").textContent="준비 완료";
+log("PDF.js 5.4.54 로딩 완료");
+log("JSZip 3.10.1 로딩 완료");
+});
+</script>
+</body>
+</html>
