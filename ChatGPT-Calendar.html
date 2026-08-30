@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="특정 연도와 월의 달력을 빠르게 조회할 수 있는 알파카 달력 웹앱">
+  <meta name="theme-color" content="#ffffff">
+  <title>알파카 달력</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --card: #ffffff;
+      --text: #202124;
+      --muted: #70757a;
+      --border: #e5e7eb;
+      --primary: #3b82f6;
+      --primary-soft: #eff6ff;
+      --sun: #e05252;
+      --sat: #3978c8;
+      --other-month: #b8bdc5;
+      --today: #3b82f6;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family:
+        -apple-system, BlinkMacSystemFont, "Segoe UI",
+        "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1100px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 42px 0 48px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 26px;
+    }
+
+    .brand {
+      margin: 0;
+      font-size: clamp(28px, 5vw, 40px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .control-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      align-items: end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .field input,
+    .field select {
+      height: 44px;
+      min-width: 130px;
+      border: 1px solid #d7dbe0;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      padding: 0 12px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .field input {
+      width: 150px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+      height: 44px;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0 16px;
+      background: #fff;
+      color: var(--text);
+      font-weight: 700;
+      transition: transform 0.1s, background 0.15s, border-color 0.15s;
+    }
+
+    .btn:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #2563eb;
+      border-color: #2563eb;
+    }
+
+    .calendar-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .calendar-toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-button {
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      background: #fff;
+      font-size: 20px;
+      line-height: 1;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .nav-button:hover {
+      background: var(--primary-soft);
+      border-color: #bfdbfe;
+    }
+
+    .nav-button.previous {
+      justify-self: start;
+    }
+
+    .nav-button.next {
+      justify-self: end;
+    }
+
+    .month-title {
+      margin: 0;
+      text-align: center;
+      font-size: clamp(22px, 4vw, 30px);
+      font-weight: 800;
+      letter-spacing: -1px;
+    }
+
+    .calendar-body {
+      padding: 0 20px 22px;
+    }
+
+    .weekdays,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .weekday {
+      padding: 18px 4px 14px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: #555b63;
+    }
+
+    .weekday.sunday {
+      color: var(--sun);
+    }
+
+    .weekday.saturday {
+      color: var(--sat);
+    }
+
+    .day {
+      position: relative;
+      min-height: 100px;
+      border-top: 1px solid var(--border);
+      padding: 10px;
+    }
+
+    .day-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .day.sunday .day-number {
+      color: var(--sun);
+    }
+
+    .day.saturday .day-number {
+      color: var(--sat);
+    }
+
+    .day.other-month .day-number {
+      color: var(--other-month);
+      font-weight: 500;
+    }
+
+    .day.today .day-number {
+      background: var(--today);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .today-label {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .info {
+      padding: 16px 20px 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .footer {
+      margin-top: 20px;
+      color: #8a9098;
+      text-align: center;
+      font-size: 12px;
+    }
+
+    @media (max-width: 700px) {
+      .app {
+        width: min(100% - 20px, 650px);
+        padding-top: 24px;
+      }
+
+      .control-card {
+        padding: 15px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: end;
+      }
+
+      .field input,
+      .field select {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .action-buttons {
+        grid-column: 1 / -1;
+      }
+
+      .action-buttons .btn {
+        flex: 1;
+      }
+
+      .calendar-toolbar {
+        padding: 16px 12px;
+      }
+
+      .calendar-body {
+        padding: 0 8px 12px;
+      }
+
+      .weekday {
+        padding: 13px 2px 10px;
+        font-size: 12px;
+      }
+
+      .day {
+        min-height: 68px;
+        padding: 7px 4px;
+      }
+
+      .day-number {
+        width: 30px;
+        height: 30px;
+        font-size: 13px;
+      }
+
+      .today-label {
+        display: none;
+      }
+
+      .nav-button {
+        width: 38px;
+        height: 38px;
+        font-size: 17px;
+      }
+
+      .month-title {
+        font-size: 21px;
+      }
+
+      .info {
+        padding-left: 10px;
+        padding-right: 10px;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .action-buttons {
+        grid-column: auto;
+      }
+
+      .day {
+        min-height: 60px;
+      }
+
+      .day-number {
+        width: 28px;
+        height: 28px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .app {
+        width: 100%;
+        padding: 0;
+      }
+
+      .header {
+        margin: 0 0 18px;
+      }
+
+      .control-card,
+      .footer,
+      .info {
+        display: none;
+      }
+
+      .calendar-card {
+        border: 0;
+        box-shadow: none;
+      }
+
+      .calendar-toolbar {
+        border-bottom: 0;
+      }
+
+      .day {
+        min-height: 110px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1 class="brand">알파카 달력</h1>
+      <p class="subtitle">원하는 연도와 월을 빠르게 조회하세요.</p>
+    </header>
+
+    <section class="control-card" aria-label="달력 조회 설정">
+      <div class="controls">
+        <div class="field">
+          <label for="yearInput">연도</label>
+          <input
+            id="yearInput"
+            type="number"
+            min="1"
+            max="9999"
+            inputmode="numeric"
+            aria-label="조회할 연도"
+          >
+        </div>
+
+        <div class="field">
+          <label for="monthSelect">월</label>
+          <select id="monthSelect" aria-label="조회할 월">
+            <option value="1">1월</option>
+            <option value="2">2월</option>
+            <option value="3">3월</option>
+            <option value="4">4월</option>
+            <option value="5">5월</option>
+            <option value="6">6월</option>
+            <option value="7">7월</option>
+            <option value="8">8월</option>
+            <option value="9">9월</option>
+            <option value="10">10월</option>
+            <option value="11">11월</option>
+            <option value="12">12월</option>
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button id="todayButton" class="btn" type="button">오늘</button>
+          <button id="goButton" class="btn btn-primary" type="button">조회</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="calendar-card" aria-label="달력">
+      <div class="calendar-toolbar">
+        <button
+          id="previousButton"
+          class="nav-button previous"
+          type="button"
+          aria-label="이전 달"
+          title="이전 달"
+        >‹</button>
+
+        <h2 id="monthTitle" class="month-title"></h2>
+
+        <button
+          id="nextButton"
+          class="nav-button next"
+          type="button"
+          aria-label="다음 달"
+          title="다음 달"
+        >›</button>
+      </div>
+
+      <div class="calendar-body">
+        <div class="weekdays" aria-hidden="true">
+          <div class="weekday sunday">일</div>
+          <div class="weekday">월</div>
+          <div class="weekday">화</div>
+          <div class="weekday">수</div>
+          <div class="weekday">목</div>
+          <div class="weekday">금</div>
+          <div class="weekday saturday">토</div>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid"></div>
+
+        <p id="calendarInfo" class="info"></p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      © Alpaca Calendar · 별도의 서버나 외부 라이브러리 없이 동작합니다.
+    </footer>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const yearInput = document.getElementById("yearInput");
+      const monthSelect = document.getElementById("monthSelect");
+      const goButton = document.getElementById("goButton");
+      const todayButton = document.getElementById("todayButton");
+      const previousButton = document.getElementById("previousButton");
+      const nextButton = document.getElementById("nextButton");
+      const monthTitle = document.getElementById("monthTitle");
+      const calendarGrid = document.getElementById("calendarGrid");
+      const calendarInfo = document.getElementById("calendarInfo");
+
+      let currentYear;
+      let currentMonth;
+
+      const today = new Date();
+      const todayYear = today.getFullYear();
+      const todayMonth = today.getMonth() + 1;
+      const todayDate = today.getDate();
+
+      function isValidYear(year) {
+        return Number.isInteger(year) && year >= 1 && year <= 9999;
+      }
+
+      function getDaysInMonth(year, month) {
+        return new Date(year, month, 0).getDate();
+      }
+
+      function getDayOfWeek(year, month, date) {
+        return new Date(year, month - 1, date).getDay();
+      }
+
+      function updateInputs() {
+        yearInput.value = currentYear;
+        monthSelect.value = String(currentMonth);
+      }
+
+      function createDayElement(year, month, date, isCurrentMonth, dayOfWeek) {
+        const cell = document.createElement("div");
+        cell.className = "day";
+
+        if (!isCurrentMonth) {
+          cell.classList.add("other-month");
+        }
+
+        if (dayOfWeek === 0) {
+          cell.classList.add("sunday");
+        } else if (dayOfWeek === 6) {
+          cell.classList.add("saturday");
+        }
+
+        const isToday =
+          isCurrentMonth &&
+          year === todayYear &&
+          month === todayMonth &&
+          date === todayDate;
+
+        if (isToday) {
+          cell.classList.add("today");
+          cell.setAttribute("aria-current", "date");
+        }
+
+        const number = document.createElement("div");
+        number.className = "day-number";
+        number.textContent = date;
+        cell.appendChild(number);
+
+        if (isToday) {
+          const label = document.createElement("div");
+          label.className = "today-label";
+          label.textContent = "오늘";
+          cell.appendChild(label);
+        }
+
+        return cell;
+      }
+
+      function renderCalendar(year, month) {
+        currentYear = year;
+        currentMonth = month;
+
+        updateInputs();
+
+        monthTitle.textContent = `${year}년 ${month}월`;
+        calendarGrid.innerHTML = "";
+
+        const firstDay = getDayOfWeek(year, month, 1);
+        const daysInMonth = getDaysInMonth(year, month);
+
+        // 이전 달의 마지막 날짜를 앞쪽 빈칸에 표시
+        const previousMonth = month === 1 ? 12 : month - 1;
+        const previousYear = month === 1 ? year - 1 : year;
+        const daysInPreviousMonth = getDaysInMonth(previousYear, previousMonth);
+
+        for (let i = firstDay - 1; i >= 0; i -= 1) {
+          const date = daysInPreviousMonth - i;
+          const dayOfWeek = getDayOfWeek(previousYear, previousMonth, date);
+          calendarGrid.appendChild(
+            createDayElement(
+              previousYear,
+              previousMonth,
+              date,
+              false,
+              dayOfWeek
+            )
+          );
+        }
+
+        // 현재 달
+        for (let date = 1; date <= daysInMonth; date += 1) {
+          const dayOfWeek = getDayOfWeek(year, month, date);
+          calendarGrid.appendChild(
+            createDayElement(year, month, date, true, dayOfWeek)
+          );
+        }
+
+        // 다음 달 날짜를 추가해 6주 단위로 표시
+        const totalCells = 42;
+        const remainingCells = totalCells - calendarGrid.children.length;
+
+        const nextMonth = month === 12 ? 1 : month + 1;
+        const nextYear = month === 12 ? year + 1 : year;
+
+        for (let date = 1; date <= remainingCells; date += 1) {
+          const dayOfWeek = getDayOfWeek(nextYear, nextMonth, date);
+          calendarGrid.appendChild(
+            createDayElement(
+              nextYear,
+              nextMonth,
+              date,
+              false,
+              dayOfWeek
+            )
+          );
+        }
+
+        const dayText = `${daysInMonth}일`;
+        const firstDayName = ["일", "월", "화", "수", "목", "금", "토"][
+          firstDay
+        ];
+
+        calendarInfo.textContent =
+          `${year}년 ${month}월은 ${dayText}이며, 1일은 ${firstDayName}요일입니다.`;
+      }
+
+      function applyInput() {
+        const year = Number.parseInt(yearInput.value, 10);
+        const month = Number.parseInt(monthSelect.value, 10);
+
+        if (!isValidYear(year)) {
+          alert("연도는 1부터 9999까지 입력할 수 있습니다.");
+          yearInput.focus();
+          return;
+        }
+
+        if (month < 1 || month > 12) {
+          alert("1월부터 12월까지 선택할 수 있습니다.");
+          monthSelect.focus();
+          return;
+        }
+
+        renderCalendar(year, month);
+      }
+
+      function moveMonth(offset) {
+        const date = new Date(currentYear, currentMonth - 1 + offset, 1);
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+
+        if (!isValidYear(year)) {
+          return;
+        }
+
+        renderCalendar(year, month);
+      }
+
+      function goToday() {
+        renderCalendar(todayYear, todayMonth);
+      }
+
+      goButton.addEventListener("click", applyInput);
+      todayButton.addEventListener("click", goToday);
+      previousButton.addEventListener("click", () => moveMonth(-1));
+      nextButton.addEventListener("click", () => moveMonth(1));
+
+      yearInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          applyInput();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const activeElement = document.activeElement;
+        const isTyping =
+          activeElement === yearInput ||
+          activeElement === monthSelect;
+
+        if (isTyping) {
+          return;
+        }
+
+        if (event.key === "ArrowLeft") {
+          moveMonth(-1);
+        } else if (event.key === "ArrowRight") {
+          moveMonth(1);
+        } else if (event.key === "Home") {
+          goToday();
+        }
+      });
+
+      // 초기 화면은 현재 연도와 월
+      renderCalendar(todayYear, todayMonth);
+    })();
+  </script>
+</body>
+</html>
