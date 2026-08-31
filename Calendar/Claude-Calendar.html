@@ -63,9 +63,13 @@
   .controls input,
   .controls select,
   .controls button,
+  .view-tabs button,
   .day,
   .day .num,
-  .weekdays span {
+  .weekdays span,
+  .weekdays-year span,
+  .grid-year .month-label,
+  .year-scroll {
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   }
 
@@ -105,8 +109,43 @@
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   }
 
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 22px 0;
+  }
+  .view-tabs {
+    display: inline-flex;
+    background: var(--paper);
+    border: 1px solid var(--grid-line);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .view-tabs button {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .view-tabs button.active {
+    background: var(--ink);
+    color: var(--paper);
+  }
+  .view-tabs button:focus-visible {
+    outline: 2px solid var(--stamp);
+    outline-offset: 2px;
+  }
+
   .head {
-    padding: 22px 22px 14px;
+    padding: 12px 22px 14px;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -148,7 +187,8 @@
   }
   .controls input,
   .controls select,
-  .controls button {
+  .controls button,
+  #themeBtn {
     font-family: 'IBM Plex Sans KR', sans-serif;
     font-size: 14px;
     font-weight: 500;
@@ -168,22 +208,26 @@
   }
   .controls input:hover,
   .controls select:hover,
-  .controls button:hover {
+  .controls button:hover,
+  #themeBtn:hover {
     background: var(--control-hover);
   }
   .controls input:focus-visible,
   .controls select:focus-visible,
-  .controls button:focus-visible {
+  .controls button:focus-visible,
+  #themeBtn:focus-visible {
     outline: 2px solid var(--stamp);
     outline-offset: 2px;
   }
-  #todayBtn {
+  #todayBtn,
+  #thisYearBtn {
     background: var(--ink);
     color: var(--paper);
     border-color: var(--ink);
     font-weight: 600;
   }
-  #todayBtn:hover {
+  #todayBtn:hover,
+  #thisYearBtn:hover {
     background: var(--cta-hover);
   }
   #themeBtn {
@@ -192,18 +236,30 @@
     padding: 8px 11px;
   }
 
-  .weekdays {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    padding: 4px 16px;
+  .weekdays,
+  .weekdays-year {
     font-size: 12.5px;
     font-weight: 600;
     color: var(--ink-soft);
     text-align: center;
   }
-  .weekdays span { padding: 6px 0; }
-  .weekdays .sun { color: var(--sun-red); }
-  .weekdays .sat { color: var(--sat-blue); }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 4px 16px;
+  }
+  .weekdays-year {
+    display: grid;
+    grid-template-columns: 26px repeat(7, 1fr);
+    padding: 6px 1px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--card);
+  }
+  .weekdays span, .weekdays-year span { padding: 6px 0; }
+  .weekdays .sun, .weekdays-year .sun { color: var(--sun-red); }
+  .weekdays .sat, .weekdays-year .sat { color: var(--sat-blue); }
 
   .grid {
     display: grid;
@@ -215,6 +271,21 @@
     border: 1px solid var(--grid-line);
     border-radius: 10px;
     overflow: hidden;
+  }
+
+  .year-scroll {
+    margin: 0 16px 22px;
+    border: 1px solid var(--grid-line);
+    border-radius: 10px;
+    overflow: hidden auto;
+    max-height: 60vh;
+  }
+  .grid-year {
+    display: grid;
+    grid-template-columns: 26px repeat(7, 1fr);
+    gap: 1px;
+    padding: 1px;
+    background: var(--grid-line);
   }
 
   .day {
@@ -246,6 +317,30 @@
     color: var(--today-fg);
   }
 
+  .grid-year .month-label {
+    background: var(--card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--stamp);
+  }
+  .grid-year .day {
+    aspect-ratio: auto;
+    height: 24px;
+    font-size: 11px;
+    animation: none;
+  }
+  .grid-year .day .num {
+    width: 1.7em;
+    height: 1.7em;
+  }
+  .grid-year .row-month-start {
+    border-top: 2px solid var(--ink-soft);
+  }
+
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(2px); }
     to { opacity: 1; transform: none; }
@@ -264,31 +359,68 @@
       <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
     </div>
 
-    <div class="head">
-      <div class="date-display" aria-live="polite">
-        <span class="year" id="yearDisplay"></span>
-        <span class="month-num" id="monthNum"></span><span class="month-label">월</span>
+    <div class="top-bar">
+      <div class="view-tabs" role="tablist">
+        <button id="monthTab" class="active" role="tab" aria-selected="true" data-view="month">월별보기</button>
+        <button id="yearTab" role="tab" aria-selected="false" data-view="year">1년전체</button>
       </div>
-
-      <div class="controls">
-        <input type="number" id="yearInput" min="1" max="9999" aria-label="연도">
-        <select id="monthSelect" aria-label="월"></select>
-        <button id="prevBtn" aria-label="이전 달로 이동" title="이전 달">◀</button>
-        <button id="nextBtn" aria-label="다음 달로 이동" title="다음 달">▶</button>
-        <button id="todayBtn" title="오늘 날짜가 있는 달로 이동">오늘</button>
-        <button id="themeBtn" title="다크모드 전환"></button>
-      </div>
+      <button id="themeBtn" title="다크모드 전환"></button>
     </div>
 
-    <div class="weekdays">
-      <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+    <div class="panel" id="monthPanel">
+      <div class="head">
+        <div class="date-display" aria-live="polite">
+          <span class="year" id="yearDisplay"></span>
+          <span class="month-num" id="monthNum"></span><span class="month-label">월</span>
+        </div>
+
+        <div class="controls">
+          <input type="number" id="yearInput" min="1" max="9999" aria-label="연도">
+          <select id="monthSelect" aria-label="월"></select>
+          <button id="prevBtn" aria-label="이전 달로 이동" title="이전 달">◀</button>
+          <button id="nextBtn" aria-label="다음 달로 이동" title="다음 달">▶</button>
+          <button id="todayBtn" title="오늘 날짜가 있는 달로 이동">오늘</button>
+        </div>
+      </div>
+
+      <div class="weekdays">
+        <span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+      </div>
+
+      <div class="grid" id="grid"></div>
     </div>
 
-    <div class="grid" id="grid"></div>
+    <div class="panel" id="yearPanel" hidden>
+      <div class="head">
+        <div class="date-display" aria-live="polite">
+          <span class="month-num" id="yearViewDisplay"></span>
+        </div>
+
+        <div class="controls">
+          <input type="number" id="yearInputY" min="1" max="9999" aria-label="연도">
+          <button id="prevYearBtn" aria-label="이전 해로 이동" title="이전 해">◀</button>
+          <button id="nextYearBtn" aria-label="다음 해로 이동" title="다음 해">▶</button>
+          <button id="thisYearBtn" title="올해로 이동">올해</button>
+        </div>
+      </div>
+
+      <div class="year-scroll" id="yearScroll">
+        <div class="weekdays-year">
+          <span></span><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span>
+        </div>
+
+        <div class="grid-year" id="yearGrid"></div>
+      </div>
+    </div>
   </div>
 
 <script>
   const state = { year: 0, month: 0 };
+
+  const monthTab = document.getElementById('monthTab');
+  const yearTab = document.getElementById('yearTab');
+  const monthPanel = document.getElementById('monthPanel');
+  const yearPanel = document.getElementById('yearPanel');
 
   const yearInput = document.getElementById('yearInput');
   const monthSelect = document.getElementById('monthSelect');
@@ -300,6 +432,14 @@
   const yearDisplay = document.getElementById('yearDisplay');
   const monthNum = document.getElementById('monthNum');
   const grid = document.getElementById('grid');
+
+  const yearViewDisplay = document.getElementById('yearViewDisplay');
+  const yearInputY = document.getElementById('yearInputY');
+  const prevYearBtn = document.getElementById('prevYearBtn');
+  const nextYearBtn = document.getElementById('nextYearBtn');
+  const thisYearBtn = document.getElementById('thisYearBtn');
+  const yearGrid = document.getElementById('yearGrid');
+  const yearScroll = document.getElementById('yearScroll');
 
   function applyThemeUI(theme) {
     themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
@@ -315,6 +455,18 @@
     applyThemeUI(next);
   });
 
+  function setView(view) {
+    const isMonth = view === 'month';
+    monthPanel.hidden = !isMonth;
+    yearPanel.hidden = isMonth;
+    monthTab.classList.toggle('active', isMonth);
+    monthTab.setAttribute('aria-selected', String(isMonth));
+    yearTab.classList.toggle('active', !isMonth);
+    yearTab.setAttribute('aria-selected', String(!isMonth));
+  }
+  monthTab.addEventListener('click', () => setView('month'));
+  yearTab.addEventListener('click', () => setView('year'));
+
   for (let m = 1; m <= 12; m++) {
     const opt = document.createElement('option');
     opt.value = String(m);
@@ -329,7 +481,7 @@
     return new Date(year, month - 1, 1).getDay();
   }
 
-  function render() {
+  function renderMonth() {
     const { year, month } = state;
     yearInput.value = year;
     monthSelect.value = String(month);
@@ -378,34 +530,118 @@
     });
   }
 
-  function goTo(year, month) {
+  function renderYear() {
+    const year = state.year;
+    yearViewDisplay.textContent = year;
+    yearInputY.value = year;
+    yearScroll.scrollTop = 0;
+
+    const jan1 = new Date(year, 0, 1);
+    const startPad = jan1.getDay();
+    const cursor = new Date(year, 0, 1 - startPad);
+
+    const dec31 = new Date(year, 11, 31);
+    const endPad = 6 - dec31.getDay();
+    const endDate = new Date(year, 11, 31 + endPad);
+
+    const totalDays = Math.round((endDate - cursor) / 86400000) + 1;
+    const totalRows = totalDays / 7;
+
+    const now = new Date();
+
+    yearGrid.innerHTML = '';
+    let d = new Date(cursor);
+    for (let r = 0; r < totalRows; r++) {
+      const rowDates = [];
+      for (let c = 0; c < 7; c++) {
+        rowDates.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+      }
+      const monthStart = rowDates.find((dt) => dt.getFullYear() === year && dt.getDate() === 1);
+      const monthLabel = monthStart ? String(monthStart.getMonth() + 1) : '';
+
+      const labelCell = document.createElement('div');
+      labelCell.className = 'month-label';
+      labelCell.textContent = monthLabel;
+      if (monthLabel) labelCell.classList.add('row-month-start');
+      yearGrid.appendChild(labelCell);
+
+      rowDates.forEach((dt, col) => {
+        const div = document.createElement('div');
+        div.className = 'day';
+        const inYear = dt.getFullYear() === year;
+        if (!inYear) div.classList.add('other');
+        if (col === 0) div.classList.add('sun');
+        if (col === 6) div.classList.add('sat');
+        if (
+          inYear &&
+          dt.getFullYear() === now.getFullYear() &&
+          dt.getMonth() === now.getMonth() &&
+          dt.getDate() === now.getDate()
+        ) {
+          div.classList.add('today');
+        }
+        if (monthLabel) div.classList.add('row-month-start');
+        const span = document.createElement('span');
+        span.className = 'num';
+        span.textContent = dt.getDate();
+        div.appendChild(span);
+        yearGrid.appendChild(div);
+      });
+    }
+  }
+
+  function renderAll() {
+    renderMonth();
+    renderYear();
+  }
+
+  function goToMonth(year, month) {
     while (month < 1) { month += 12; year -= 1; }
     while (month > 12) { month -= 12; year += 1; }
     state.year = year;
     state.month = month;
-    render();
+    renderAll();
   }
 
-  prevBtn.addEventListener('click', () => goTo(state.year, state.month - 1));
-  nextBtn.addEventListener('click', () => goTo(state.year, state.month + 1));
+  function goToYear(year) {
+    state.year = year;
+    renderAll();
+  }
+
+  prevBtn.addEventListener('click', () => goToMonth(state.year, state.month - 1));
+  nextBtn.addEventListener('click', () => goToMonth(state.year, state.month + 1));
   todayBtn.addEventListener('click', () => {
     const now = new Date();
-    goTo(now.getFullYear(), now.getMonth() + 1);
+    goToMonth(now.getFullYear(), now.getMonth() + 1);
   });
   yearInput.addEventListener('change', () => {
     const v = parseInt(yearInput.value, 10);
     if (!Number.isNaN(v) && v > 0) {
-      goTo(v, state.month);
+      goToMonth(v, state.month);
     } else {
       yearInput.value = state.year;
     }
   });
   monthSelect.addEventListener('change', () => {
-    goTo(state.year, parseInt(monthSelect.value, 10));
+    goToMonth(state.year, parseInt(monthSelect.value, 10));
   });
 
+  prevYearBtn.addEventListener('click', () => goToYear(state.year - 1));
+  nextYearBtn.addEventListener('click', () => goToYear(state.year + 1));
+  thisYearBtn.addEventListener('click', () => goToYear(new Date().getFullYear()));
+  yearInputY.addEventListener('change', () => {
+    const v = parseInt(yearInputY.value, 10);
+    if (!Number.isNaN(v) && v > 0) {
+      goToYear(v);
+    } else {
+      yearInputY.value = state.year;
+    }
+  });
+
+  setView('month');
   const today = new Date();
-  goTo(today.getFullYear(), today.getMonth() + 1);
+  goToMonth(today.getFullYear(), today.getMonth() + 1);
 </script>
 </body>
 </html>
