@@ -301,8 +301,9 @@
   }
   .day.sun { color: var(--sun-red); }
   .day.sat { color: var(--sat-blue); }
+  .day.holiday { color: var(--sun-red); cursor: pointer; }
   .day.other { color: var(--ink-soft); opacity: 0.6; }
-  .day.other.sun, .day.other.sat { color: var(--ink-soft); }
+  .day.other.sun, .day.other.sat, .day.other.holiday { color: var(--ink-soft); }
 
   .day .num {
     display: inline-flex;
@@ -339,6 +340,22 @@
   }
   .grid-year .row-month-start {
     border-top: 2px solid var(--ink-soft);
+  }
+
+  .holiday-tip {
+    position: fixed;
+    z-index: 50;
+    max-width: 220px;
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    padding: 7px 10px;
+    border-radius: 8px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
   }
 
   @keyframes fadeIn {
@@ -414,8 +431,12 @@
     </div>
   </div>
 
+  <div class="holiday-tip" id="holidayTip" role="tooltip" hidden></div>
+
 <script>
   const state = { year: 0, month: 0 };
+  let holidaysByDate = {};
+  let activeTipCell = null;
 
   const monthTab = document.getElementById('monthTab');
   const yearTab = document.getElementById('yearTab');
@@ -440,6 +461,7 @@
   const thisYearBtn = document.getElementById('thisYearBtn');
   const yearGrid = document.getElementById('yearGrid');
   const yearScroll = document.getElementById('yearScroll');
+  const holidayTip = document.getElementById('holidayTip');
 
   function applyThemeUI(theme) {
     themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
@@ -456,6 +478,7 @@
   });
 
   function setView(view) {
+    hideTip();
     const isMonth = view === 'month';
     monthPanel.hidden = !isMonth;
     yearPanel.hidden = isMonth;
@@ -480,8 +503,51 @@
   function firstWeekday(year, month) {
     return new Date(year, month - 1, 1).getDay();
   }
+  function dateKey(y, m, d) {
+    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  }
+
+  function showTip(cell, text) {
+    activeTipCell = cell;
+    holidayTip.textContent = text;
+    holidayTip.style.visibility = 'hidden';
+    holidayTip.hidden = false;
+    const rect = cell.getBoundingClientRect();
+    const tw = holidayTip.offsetWidth;
+    const th = holidayTip.offsetHeight;
+    const margin = 8;
+    let left = rect.left + rect.width / 2 - tw / 2;
+    left = Math.max(margin, Math.min(left, window.innerWidth - tw - margin));
+    let top = rect.top - th - margin;
+    if (top < margin) top = rect.bottom + margin;
+    holidayTip.style.left = left + 'px';
+    holidayTip.style.top = top + 'px';
+    holidayTip.style.visibility = 'visible';
+  }
+  function hideTip() {
+    activeTipCell = null;
+    holidayTip.hidden = true;
+  }
+  function wireHolidayTip(cell, text) {
+    cell.addEventListener('mouseenter', () => showTip(cell, text));
+    cell.addEventListener('mouseleave', () => {
+      if (activeTipCell === cell) hideTip();
+    });
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (activeTipCell === cell) {
+        hideTip();
+      } else {
+        showTip(cell, text);
+      }
+    });
+  }
+  document.addEventListener('click', () => hideTip());
+  yearScroll.addEventListener('scroll', () => hideTip());
+  window.addEventListener('resize', () => hideTip());
 
   function renderMonth() {
+    hideTip();
     const { year, month } = state;
     yearInput.value = year;
     monthSelect.value = String(month);
@@ -500,7 +566,7 @@
       cells.push({ day: prevDays - i, other: true });
     }
     for (let d = 1; d <= totalDays; d++) {
-      cells.push({ day: d, other: false });
+      cells.push({ day: d, other: false, key: dateKey(year, month, d) });
     }
     const remainder = cells.length % 7;
     const trailing = remainder === 0 ? 0 : 7 - remainder;
@@ -526,11 +592,21 @@
       span.className = 'num';
       span.textContent = cell.day;
       div.appendChild(span);
+
+      if (!cell.other) {
+        const names = holidaysByDate[cell.key];
+        if (names && names.length) {
+          div.classList.add('holiday');
+          wireHolidayTip(div, names.join(', '));
+        }
+      }
+
       grid.appendChild(div);
     });
   }
 
   function renderYear() {
+    hideTip();
     const year = state.year;
     yearViewDisplay.textContent = year;
     yearInputY.value = year;
@@ -586,6 +662,15 @@
         span.className = 'num';
         span.textContent = dt.getDate();
         div.appendChild(span);
+
+        if (inYear) {
+          const names = holidaysByDate[dateKey(dt.getFullYear(), dt.getMonth() + 1, dt.getDate())];
+          if (names && names.length) {
+            div.classList.add('holiday');
+            wireHolidayTip(div, names.join(', '));
+          }
+        }
+
         yearGrid.appendChild(div);
       });
     }
@@ -639,9 +724,26 @@
     }
   });
 
+  async function loadHolidays() {
+    try {
+      const res = await fetch('https://holidays.hyunbin.page/basic.json');
+      if (!res.ok) return;
+      const data = await res.json();
+      const flat = {};
+      Object.keys(data).forEach((y) => {
+        Object.assign(flat, data[y]);
+      });
+      holidaysByDate = flat;
+      renderAll();
+    } catch (e) {
+      /* offline or blocked - calendar still works without holiday data */
+    }
+  }
+
   setView('month');
   const today = new Date();
   goToMonth(today.getFullYear(), today.getMonth() + 1);
+  loadHolidays();
 </script>
 </body>
 </html>
