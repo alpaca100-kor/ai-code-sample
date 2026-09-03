@@ -1,0 +1,86 @@
+name: Deploy with AdSense injection
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare build directory
+        run: |
+          mkdir -p _site
+          rsync -a --exclude='.git' --exclude='.github' --exclude='_site' ./ _site/
+
+      - name: Inject AdSense code into HTML files
+        run: |
+          python3 - <<'PY'
+          import os
+
+          # pub ID는 공개적으로 노출되는 값이라 (ads.txt에도 그대로 들어감)
+          # 여기 직접 하드코딩해도 보안상 문제되지 않습니다.
+          CLIENT = "ca-pub-9606702847035966"
+          SNIPPET = (
+              f'<script async src="https://pagead2.googlesyndication.com/'
+              f'pagead/js/adsbygoogle.js?client={CLIENT}" '
+              f'crossorigin="anonymous"></script>\n'
+          )
+
+          injected, skipped = [], []
+
+          for root, dirs, files in os.walk("_site"):
+              for name in files:
+                  if not name.endswith(".html"):
+                      continue
+                  path = os.path.join(root, name)
+                  with open(path, "r", encoding="utf-8") as f:
+                      content = f.read()
+
+                  if "<!-- no-ads -->" in content:
+                      skipped.append(path)
+                      continue
+                  if CLIENT in content:
+                      skipped.append(path)
+                      continue
+                  if "</head>" not in content:
+                      skipped.append(path)
+                      continue
+
+                  content = content.replace("</head>", SNIPPET + "</head>", 1)
+                  with open(path, "w", encoding="utf-8") as f:
+                      f.write(content)
+                  injected.append(path)
+
+          print("Injected:", injected)
+          print("Skipped:", skipped)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
