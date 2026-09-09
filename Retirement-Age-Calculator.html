@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>은퇴나이 계산기</title>
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  :root{
+    --bg:#F6F1E4; --surface:#FFFFFF; --surface-2:#EFE8D6;
+    --text:#1C2A22; --text-muted:#5C6B5D; --border:#DED2B4;
+    --gold:#BE8A2E; --gold-strong:#96690F; --clay:#9C5A44;
+    --shadow:rgba(28,42,34,0.10);
+    --font:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    --radius:14px;
+  }
+  html[data-theme="dark"]{
+    --bg:#12201A; --surface:#1B2B22; --surface-2:#223226;
+    --text:#ECE6D6; --text-muted:#9FB0A0; --border:#33453A;
+    --gold:#D8A94B; --gold-strong:#E8C173; --clay:#C07F63;
+    --shadow:rgba(0,0,0,0.4);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--font);
+    transition:background-color .25s ease, color .25s ease;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important; animation:none !important;}
+  }
+  .page{max-width:760px; margin:0 auto; padding:2.25rem 1.5rem 3rem;}
+  @media (max-width:520px){ .page{padding:1.5rem 1rem 2.5rem;} }
+
+  /* header */
+  .app-header{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+    margin-bottom:1.75rem; position:relative;
+  }
+  .header-titles h1{
+    font-size:1.7rem; font-weight:800; margin:0 0 .35rem; letter-spacing:-0.02em;
+  }
+  .header-titles p{
+    margin:0; color:var(--text-muted); font-size:.92rem; line-height:1.5; max-width:34ch;
+  }
+  .header-actions{display:flex; gap:.5rem; flex-shrink:0;}
+  .icon-btn{
+    width:2.35rem; height:2.35rem; border-radius:50%; border:1px solid var(--border);
+    background:var(--surface); color:var(--text); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:background-color .15s ease, transform .1s ease, border-color .15s ease;
+  }
+  .icon-btn:hover{background:var(--surface-2); border-color:var(--gold);}
+  .icon-btn:active{transform:scale(0.94);}
+  .icon-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+  .growth-glyph{position:absolute; right:0; top:-8px; width:130px; height:52px; opacity:.9; pointer-events:none;}
+  @media (max-width:600px){ .growth-glyph{display:none;} }
+
+  /* input cards */
+  .inputs-grid{display:flex; flex-wrap:wrap; gap:.85rem; margin-bottom:1.1rem;}
+  .input-card{
+    flex:1 1 180px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:.95rem 1.1rem; box-shadow:0 2px 10px var(--shadow);
+  }
+  .input-card label{display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:.4rem;}
+  .input-row{display:flex; align-items:baseline; gap:.4rem;}
+  .input-row input[type="number"]{
+    width:100%; min-width:0; border:none; background:transparent; color:var(--text);
+    font-family:var(--font); font-size:1.35rem; font-weight:700; padding:0; font-variant-numeric:tabular-nums;
+  }
+  .input-row input[type="number"]:focus{outline:none;}
+  .input-card.focus-within, .input-card:focus-within{border-color:var(--gold);}
+  .input-row .unit{font-size:.85rem; color:var(--text-muted); white-space:nowrap;}
+  .input-hint{font-size:.72rem; color:var(--text-muted); margin-top:.35rem; line-height:1.4;}
+
+  .summary-text{
+    font-size:.92rem; line-height:1.6; color:var(--text-muted); margin:0 0 1.4rem;
+  }
+
+  /* results */
+  .section-title{font-size:1rem; font-weight:700; margin:0 0 .6rem;}
+  .axis-caption{
+    text-align:center; font-size:.76rem; color:var(--text-muted); font-weight:600;
+    margin:0 0 .35rem; padding-left:4.4rem;
+  }
+  .table-scroll{overflow-x:auto; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface);}
+  table{border-collapse:collapse; width:100%; min-width:560px;}
+  th,td{padding:.55rem .5rem; text-align:center;}
+  thead th{border-bottom:1px solid var(--border);}
+  .corner{
+    font-size:.72rem; font-weight:600; color:var(--text-muted); white-space:nowrap;
+    position:sticky; left:0; background:var(--surface); z-index:2; border-right:1px solid var(--border);
+  }
+  .row-header-cell{
+    position:sticky; left:0; background:var(--surface); z-index:1; border-right:1px solid var(--border);
+    white-space:nowrap;
+  }
+  .col-header-input{
+    width:4.2rem; text-align:center; border:1px solid transparent; border-radius:8px;
+    background:transparent; color:var(--text); font-family:var(--font); font-weight:600; font-size:.9rem;
+    padding:.3rem .2rem; font-variant-numeric:tabular-nums;
+  }
+  .row-header-input{
+    width:2.6rem; text-align:right; border:1px solid transparent; border-radius:8px;
+    background:transparent; color:var(--text); font-family:var(--font); font-weight:600; font-size:.9rem;
+    padding:.3rem .15rem; font-variant-numeric:tabular-nums;
+  }
+  .pct-suffix{font-size:.85rem; color:var(--text-muted); margin-left:.1rem;}
+  .col-header-input:hover,.row-header-input:hover{border-color:var(--border);}
+  .col-header-input:focus,.row-header-input:focus{outline:none; border-color:var(--gold); background:var(--surface-2);}
+  .col-header-input::-webkit-outer-spin-button,.col-header-input::-webkit-inner-spin-button,
+  .row-header-input::-webkit-outer-spin-button,.row-header-input::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .result-cell{border-radius:8px; transition:background-color .35s ease;}
+  .cell-main{font-weight:700; font-size:.98rem; font-variant-numeric:tabular-nums;}
+  .cell-main.unreachable{color:var(--text-muted); font-weight:500; font-size:.85rem;}
+  .cell-sub{font-size:.7rem; color:var(--text-muted); margin-top:.15rem;}
+
+  .actions-row{display:flex; justify-content:flex-end; margin-top:.9rem;}
+  .btn-ghost{
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    border-radius:999px; padding:.5rem 1rem; font-family:var(--font); font-size:.82rem; font-weight:600;
+    cursor:pointer; transition:border-color .15s ease, background-color .15s ease;
+  }
+  .btn-ghost:hover{border-color:var(--gold); background:var(--surface-2);}
+  .btn-ghost:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  .app-footer{margin-top:2rem; font-size:.76rem; color:var(--text-muted); line-height:1.6; text-align:center;}
+
+  /* modal */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(10,15,12,.55); display:flex; align-items:center; justify-content:center;
+    padding:1.25rem; z-index:50;
+  }
+  .modal-backdrop[hidden]{display:none;}
+  .modal{
+    background:var(--surface); border-radius:16px; max-width:520px; width:100%; max-height:82vh; overflow-y:auto;
+    padding:1.4rem 1.5rem 1.6rem; box-shadow:0 20px 60px var(--shadow); border:1px solid var(--border);
+  }
+  .modal-header{display:flex; align-items:center; justify-content:space-between; margin-bottom:.85rem;}
+  .modal-header h2{font-size:1.15rem; margin:0;}
+  .modal-body{font-size:.9rem; line-height:1.75; color:var(--text);}
+  .modal-body p{margin:0 0 .85rem;}
+  .formula-block{
+    background:var(--surface-2); border-radius:10px; padding:.8rem .95rem; font-size:.84rem; line-height:1.7;
+    margin:.7rem 0 1rem; overflow-x:auto;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="app-header">
+    <svg class="growth-glyph" viewBox="0 0 200 80" aria-hidden="true">
+      <defs>
+        <linearGradient id="growthFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--gold)" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="var(--gold)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="M4,64 L40,50 L76,54 L112,30 L148,34 L196,6 L196,80 L4,80 Z" fill="url(#growthFill)" stroke="none"/>
+      <path d="M4,64 L40,50 L76,54 L112,30 L148,34 L196,6" fill="none" stroke="var(--gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="196" cy="6" r="4" fill="var(--gold)"/>
+    </svg>
+    <div class="header-titles">
+      <h1>은퇴나이 계산기</h1>
+      <p>저축액과 수익률에 따라 목표 자산까지 걸리는 시간과 예상 은퇴 나이를 확인해보세요.</p>
+    </div>
+    <div class="header-actions">
+      <button class="icon-btn" id="themeBtn" type="button" aria-label="다크 모드로 전환"></button>
+      <button class="icon-btn" id="helpBtn" type="button" aria-label="계산 원리 보기">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="9.5"></circle>
+          <path d="M9.3 9a2.7 2.7 0 0 1 5.2 1c0 1.6-2.3 2-2.5 3.3"></path>
+          <circle cx="12" cy="16.8" r="0.35" fill="currentColor"></circle>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="inputs-grid">
+    <div class="input-card">
+      <label for="targetInput">목표 순자산</label>
+      <div class="input-row">
+        <input type="number" id="targetInput" inputmode="decimal" min="0" step="0.5" value="50">
+        <span class="unit">억원</span>
+      </div>
+    </div>
+    <div class="input-card">
+      <label for="currentInput">현재 순자산</label>
+      <div class="input-row">
+        <input type="number" id="currentInput" inputmode="decimal" min="0" step="0.5" value="6">
+        <span class="unit">억원</span>
+      </div>
+    </div>
+    <div class="input-card">
+      <label for="ageInput">현재 나이 (선택)</label>
+      <div class="input-row">
+        <input type="number" id="ageInput" inputmode="decimal" min="0" step="1" placeholder="예: 35">
+        <span class="unit">세</span>
+      </div>
+      <div class="input-hint">입력하면 예상 은퇴 나이도 함께 보여드려요.</div>
+    </div>
+  </section>
+
+  <p class="summary-text" id="summaryText"></p>
+
+  <section class="results-section">
+    <h2 class="section-title">저축액 · 수익률별 목표 달성 기간</h2>
+    <div class="axis-caption">연저축액 (만원)</div>
+    <div class="table-scroll">
+      <table id="grid">
+        <thead>
+          <tr id="headerRow">
+            <th class="corner">수익률(%)</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="actions-row">
+      <button class="btn-ghost" id="resetBtn" type="button">기본값으로 초기화</button>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    표의 진한 색일수록 더 빨리 목표에 도달하는 조합이에요 · 물가상승률·세금·변동성은 반영되지 않은 단순 계산이니 참고용으로만 활용하세요.
+  </footer>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <h2 id="modalTitle">어떻게 계산하나요?</h2>
+      <button class="icon-btn" id="modalClose" type="button" aria-label="닫기">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p>매년 저축하는 금액과 예상 수익률을 정하면, 지금 가진 자산과 앞으로 모을 자산이 함께 불어나 목표 금액에 도달하기까지 걸리는 시간을 거꾸로 계산해요.</p>
+      <p>현재 자산은 매년 정해진 수익률만큼 복리로 불어나고, 매년 새로 저축하는 금액도 저축한 시점부터 같은 수익률로 불어나요. 이 두 금액을 더한 값이 목표 자산과 같아지는 연차(n)를 로그방정식으로 구하는 방식이에요.</p>
+      <div class="formula-block">
+        목표자산 = 현재자산 × (1+수익률)<sup>n</sup> + 연저축액 × [(1+수익률)<sup>n</sup> − 1] ÷ 수익률<br><br>
+        → n = log<sub>(1+수익률)</sub>&nbsp;&nbsp;( (연저축액÷수익률 + 목표자산) ÷ (현재자산 + 연저축액÷수익률) )
+      </div>
+      <p>이렇게 구한 소요 연수에 현재 나이를 더하면 예상 은퇴 나이가 나와요. 연저축액과 수익률 칸의 숫자는 표에서 직접 눌러 원하는 값으로 바꿀 수 있어요.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DEFAULT_STATE = {
+    theme: null,
+    target: 50,
+    current: 6,
+    age: null,
+    savings: [3000, 4000, 5000, 6000, 7000],
+    rates: [5, 10, 15, 20]
+  };
+  var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+
+  var PALETTES = {
+    light: { base: [239, 232, 214], accent: [190, 138, 46] },
+    dark:  { base: [34, 50, 38],   accent: [216, 169, 75] }
+  };
+
+  var sunIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  var moonIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function calcYears(target, current, pmt, rate){
+    if (target <= current) return 0;
+    if (Math.abs(rate) < 1e-9){
+      if (pmt <= 0) return Infinity;
+      return (target - current) / pmt;
+    }
+    if (rate <= -1) return Infinity;
+    var A = pmt / rate;
+    var numerator = A + target;
+    var denominator = current + A;
+    if (denominator <= 0 || numerator <= 0) return Infinity;
+    var ratio = numerator / denominator;
+    if (!isFinite(ratio) || ratio <= 0) return Infinity;
+    return Math.log(ratio) / Math.log(1 + rate);
+  }
+
+  function formatDuration(n){
+    if (!isFinite(n)) return { main: '도달 불가', ok:false };
+    if (n <= 0) return { main: '달성 완료', ok:true };
+    var y = Math.floor(n);
+    var m = Math.round((n - y) * 12);
+    if (m === 12){ y += 1; m = 0; }
+    return { main: m > 0 ? (y + '년 ' + m + '개월') : (y + '년'), ok:true };
+  }
+
+  function formatAge(age, n){
+    if (age === null || age === undefined || isNaN(age) || !isFinite(n) || n <= 0) return null;
+    var retireAge = Math.round(age + n);
+    return '만 ' + retireAge + '세 은퇴';
+  }
+
+  function formatNum(n){
+    if (isNaN(n)) return '0';
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 10) / 10);
+  }
+
+  function mix(c1, c2, t){
+    return [0,1,2].map(function(k){ return Math.round(c1[k] + (c2[k]-c1[k]) * t); });
+  }
+  function rgbToCss(c){ return 'rgb(' + c[0] + ', ' + c[1] + ', ' + c[2] + ')'; }
+
+  var els = {};
+  ['targetInput','currentInput','ageInput','summaryText','headerRow','tableBody',
+   'resetBtn','themeBtn','helpBtn','modalBackdrop','modalClose'].forEach(function(id){
+    els[id] = document.getElementById(id);
+  });
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    els.themeBtn.innerHTML = theme === 'dark' ? sunIcon : moonIcon;
+    els.themeBtn.setAttribute('aria-label', theme === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환');
+  }
+
+  function updateSummary(target, current, age){
+    if (target > 0 && current >= target){
+      els.summaryText.textContent = '이미 목표 순자산을 달성하셨습니다. 아래 표는 참고용으로 남겨둘게요.';
+      return;
+    }
+    var text = '현재 순자산 ' + formatNum(current) + '억원에서 목표 ' + formatNum(target) + '억원까지, 저축액과 수익률에 따라 걸리는 시간이 달라져요.';
+    if (age !== null){
+      text += ' 지금 만 ' + formatNum(age) + '세라면, 표에서 예상 은퇴 나이도 함께 확인해보세요.';
+    }
+    els.summaryText.textContent = text;
+  }
+
+  function renderCells(){
+    var targetVal = parseFloat(els.targetInput.value) || 0;
+    var currentVal = parseFloat(els.currentInput.value) || 0;
+    var ageRaw = els.ageInput.value;
+    var ageVal = (ageRaw !== '' && !isNaN(parseFloat(ageRaw))) ? parseFloat(ageRaw) : null;
+
+    state.target = targetVal;
+    state.current = currentVal;
+    state.age = ageVal;
+
+    var targetU = targetVal * 10000;
+    var currentU = currentVal * 10000;
+    var rows = state.rates.length;
+    var cols = state.savings.length;
+
+    var matrix = [];
+    for (var i = 0; i < rows; i++){
+      var r = (parseFloat(state.rates[i]) || 0) / 100;
+      var rowArr = [];
+      for (var j = 0; j < cols; j++){
+        var pmt = parseFloat(state.savings[j]) || 0;
+        rowArr.push(calcYears(targetU, currentU, pmt, r));
+      }
+      matrix.push(rowArr);
+    }
+
+    var finiteVals = [];
+    matrix.forEach(function(row){ row.forEach(function(v){ if (isFinite(v) && v >= 0) finiteVals.push(v); }); });
+    var minV = finiteVals.length ? Math.min.apply(null, finiteVals) : 0;
+    var maxV = finiteVals.length ? Math.max.apply(null, finiteVals) : 1;
+    var span = maxV - minV;
+
+    var palette = document.documentElement.getAttribute('data-theme') === 'dark' ? PALETTES.dark : PALETTES.light;
+
+    for (var i2 = 0; i2 < rows; i2++){
+      for (var j2 = 0; j2 < cols; j2++){
+        var cell = els.tableBody.querySelector('.result-cell[data-row="' + i2 + '"][data-col="' + j2 + '"]');
+        if (!cell) continue;
+        var val = matrix[i2][j2];
+        var dur = formatDuration(val);
+        var ageStr = formatAge(ageVal, val);
+        var mainClass = dur.ok ? 'cell-main' : 'cell-main unreachable';
+        cell.innerHTML = '<div class="' + mainClass + '">' + dur.main + '</div>' + (ageStr ? '<div class="cell-sub">' + ageStr + '</div>' : '');
+        var t;
+        if (!isFinite(val)) t = 0;
+        else if (span <= 1e-9) t = 0.7;
+        else t = 1 - (val - minV) / span;
+        t = Math.max(0, Math.min(1, t)) * 0.85;
+        cell.style.backgroundColor = rgbToCss(mix(palette.base, palette.accent, t));
+      }
+    }
+
+    updateSummary(targetVal, currentVal, ageVal);
+  }
+
+  function buildTable(){
+    state.savings.forEach(function(val, idx){
+      var th = document.createElement('th');
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'col-header-input';
+      input.value = val;
+      input.min = '0';
+      input.step = '100';
+      input.inputMode = 'decimal';
+      input.setAttribute('aria-label', '연저축액 ' + (idx+1) + ' (만원)');
+      input.addEventListener('input', function(){
+        state.savings[idx] = parseFloat(input.value) || 0;
+        renderCells();
+        saveState();
+      });
+      th.appendChild(input);
+      els.headerRow.appendChild(th);
+    });
+
+    state.rates.forEach(function(rateVal, i){
+      var tr = document.createElement('tr');
+      var th = document.createElement('th');
+      th.className = 'row-header-cell';
+      var input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'row-header-input';
+      input.value = rateVal;
+      input.min = '0';
+      input.step = '0.5';
+      input.inputMode = 'decimal';
+      input.setAttribute('aria-label', '수익률 ' + (i+1) + ' (%)');
+      input.addEventListener('input', function(){
+        state.rates[i] = parseFloat(input.value) || 0;
+        renderCells();
+        saveState();
+      });
+      th.appendChild(input);
+      var pct = document.createElement('span');
+      pct.className = 'pct-suffix';
+      pct.textContent = '%';
+      th.appendChild(pct);
+      tr.appendChild(th);
+
+      state.savings.forEach(function(_, j){
+        var td = document.createElement('td');
+        td.className = 'result-cell';
+        td.dataset.row = i;
+        td.dataset.col = j;
+        tr.appendChild(td);
+      });
+      els.tableBody.appendChild(tr);
+    });
+  }
+
+  function resetToDefaults(){
+    state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    els.targetInput.value = state.target;
+    els.currentInput.value = state.current;
+    els.ageInput.value = '';
+    var colInputs = els.headerRow.querySelectorAll('.col-header-input');
+    colInputs.forEach(function(inp, idx){ inp.value = state.savings[idx]; });
+    var rowInputs = els.tableBody.querySelectorAll('.row-header-input');
+    rowInputs.forEach(function(inp, idx){ inp.value = state.rates[idx]; });
+    var initialTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    applyTheme(initialTheme);
+    state.theme = initialTheme;
+    renderCells();
+    saveState();
+  }
+
+  function saveState(){
+    if (window.storage && typeof window.storage.set === 'function'){
+      try { window.storage.set('settings', JSON.stringify(state), false); } catch(e){}
+    }
+  }
+
+  function closeModal(){ els.modalBackdrop.hidden = true; els.helpBtn.focus(); }
+  function openModal(){ els.modalBackdrop.hidden = false; els.modalClose.focus(); }
+
+  async function init(){
+    var saved = null;
+    if (window.storage && typeof window.storage.get === 'function'){
+      try {
+        var res = await window.storage.get('settings', false);
+        if (res && res.value) saved = JSON.parse(res.value);
+      } catch(e){ saved = null; }
+    }
+    if (saved){
+      state = Object.assign({}, DEFAULT_STATE, saved);
+      if (!Array.isArray(state.savings) || state.savings.length !== 5) state.savings = DEFAULT_STATE.savings.slice();
+      if (!Array.isArray(state.rates) || state.rates.length !== 4) state.rates = DEFAULT_STATE.rates.slice();
+    }
+
+    els.targetInput.value = state.target;
+    els.currentInput.value = state.current;
+    els.ageInput.value = (state.age !== null && state.age !== undefined) ? state.age : '';
+
+    var initialTheme = state.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
+    applyTheme(initialTheme);
+    state.theme = initialTheme;
+
+    buildTable();
+    renderCells();
+
+    ['targetInput','currentInput','ageInput'].forEach(function(id){
+      els[id].addEventListener('input', function(){ renderCells(); saveState(); });
+    });
+
+    els.themeBtn.addEventListener('click', function(){
+      var cur = document.documentElement.getAttribute('data-theme');
+      var next = cur === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      state.theme = next;
+      renderCells();
+      saveState();
+    });
+
+    els.resetBtn.addEventListener('click', resetToDefaults);
+    els.helpBtn.addEventListener('click', openModal);
+    els.modalClose.addEventListener('click', closeModal);
+    els.modalBackdrop.addEventListener('click', function(e){ if (e.target === els.modalBackdrop) closeModal(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !els.modalBackdrop.hidden) closeModal(); });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
