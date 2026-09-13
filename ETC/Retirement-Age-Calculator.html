@@ -96,20 +96,18 @@
     position:sticky; left:0; background:var(--surface); z-index:1; border-right:1px solid var(--border);
     white-space:nowrap;
   }
-  .col-header-input{
-    width:4.2rem; text-align:center; border:1px solid transparent; border-radius:8px;
-    background:transparent; color:var(--text); font-family:var(--font); font-weight:600; font-size:.9rem;
-    padding:.3rem .2rem; font-variant-numeric:tabular-nums;
+  .col-header-value{
+    display:block; font-weight:700; font-size:.9rem; color:var(--text); font-variant-numeric:tabular-nums; white-space:nowrap;
   }
+  .col-header-unit{display:block; font-size:.64rem; font-weight:500; color:var(--text-muted); margin-top:.1rem;}
   .row-header-input{
     width:2.6rem; text-align:right; border:1px solid transparent; border-radius:8px;
     background:transparent; color:var(--text); font-family:var(--font); font-weight:600; font-size:.9rem;
     padding:.3rem .15rem; font-variant-numeric:tabular-nums;
   }
   .pct-suffix{font-size:.85rem; color:var(--text-muted); margin-left:.1rem;}
-  .col-header-input:hover,.row-header-input:hover{border-color:var(--border);}
-  .col-header-input:focus,.row-header-input:focus{outline:none; border-color:var(--gold); background:var(--surface-2);}
-  .col-header-input::-webkit-outer-spin-button,.col-header-input::-webkit-inner-spin-button,
+  .row-header-input:hover{border-color:var(--border);}
+  .row-header-input:focus{outline:none; border-color:var(--gold); background:var(--surface-2);}
   .row-header-input::-webkit-outer-spin-button,.row-header-input::-webkit-inner-spin-button{
     -webkit-appearance:none; margin:0;
   }
@@ -196,6 +194,14 @@
       </div>
     </div>
     <div class="input-card">
+      <label for="monthlySavingsInput">월 평균 저축액</label>
+      <div class="input-row">
+        <input type="number" id="monthlySavingsInput" inputmode="decimal" min="0" step="10" value="0">
+        <span class="unit">만원</span>
+      </div>
+      <div class="input-hint">표 첫 번째 열(연저축액)의 기준값이 돼요.</div>
+    </div>
+    <div class="input-card">
       <label for="ageInput">현재 나이 (선택)</label>
       <div class="input-row">
         <input type="number" id="ageInput" inputmode="decimal" min="0" step="1" placeholder="예: 35">
@@ -209,7 +215,7 @@
 
   <section class="results-section">
     <h2 class="section-title">저축액 · 수익률별 목표 달성 기간</h2>
-    <div class="axis-caption">연저축액 (만원)</div>
+    <div class="axis-caption">연저축액(만원) · 오른쪽으로 갈수록 월 저축액 +50만원</div>
     <div class="table-scroll">
       <table id="grid">
         <thead>
@@ -245,7 +251,7 @@
         목표자산 = 현재자산 × (1+수익률)<sup>n</sup> + 연저축액 × [(1+수익률)<sup>n</sup> − 1] ÷ 수익률<br><br>
         → n = log<sub>(1+수익률)</sub>&nbsp;&nbsp;( (연저축액÷수익률 + 목표자산) ÷ (현재자산 + 연저축액÷수익률) )
       </div>
-      <p>이렇게 구한 소요 연수에 현재 나이를 더하면 예상 은퇴 나이가 나와요. 연저축액과 수익률 칸의 숫자는 표에서 직접 눌러 원하는 값으로 바꿀 수 있어요.</p>
+      <p>이렇게 구한 소요 연수에 현재 나이를 더하면 예상 은퇴 나이가 나와요. 표의 연저축액은 위에서 입력한 월 평균 저축액(×12)이 첫 번째 열이 되고, 오른쪽으로 갈수록 월 저축액이 50만원씩 늘어나는 상황을 자동으로 보여줘요. 수익률 칸의 숫자는 표에서 직접 눌러 원하는 값으로 바꿀 수 있어요.</p>
     </div>
   </div>
 </div>
@@ -258,10 +264,11 @@
     theme: null,
     target: 50,
     current: 6,
+    monthlySavings: 0,
     age: null,
-    savings: [3000, 4000, 5000, 6000, 7000],
     rates: [5, 10, 15, 20]
   };
+  var SAVINGS_STEP = 600; // 연저축액 열 간 증가폭(만원) = 월 50만원 증가
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
 
   var PALETTES = {
@@ -314,7 +321,7 @@
   function rgbToCss(c){ return 'rgb(' + c[0] + ', ' + c[1] + ', ' + c[2] + ')'; }
 
   var els = {};
-  ['targetInput','currentInput','ageInput','summaryText','headerRow','tableBody',
+  ['targetInput','currentInput','monthlySavingsInput','ageInput','summaryText','headerRow','tableBody',
    'resetBtn','themeBtn','helpBtn','modalBackdrop','modalClose'].forEach(function(id){
     els[id] = document.getElementById(id);
   });
@@ -340,24 +347,32 @@
   function renderCells(){
     var targetVal = parseFloat(els.targetInput.value) || 0;
     var currentVal = parseFloat(els.currentInput.value) || 0;
+    var monthlyVal = parseFloat(els.monthlySavingsInput.value) || 0;
     var ageRaw = els.ageInput.value;
     var ageVal = (ageRaw !== '' && !isNaN(parseFloat(ageRaw))) ? parseFloat(ageRaw) : null;
 
     state.target = targetVal;
     state.current = currentVal;
+    state.monthlySavings = monthlyVal;
     state.age = ageVal;
 
     var targetU = targetVal * 10000;
     var currentU = currentVal * 10000;
+    var baseAnnual = monthlyVal * 12;
+    var savingsCols = [0,1,2,3,4].map(function(k){ return baseAnnual + k * SAVINGS_STEP; });
+
+    var colHeaderEls = els.headerRow.querySelectorAll('.col-header-value');
+    colHeaderEls.forEach(function(el, idx){ el.textContent = formatNum(savingsCols[idx]); });
+
     var rows = state.rates.length;
-    var cols = state.savings.length;
+    var cols = savingsCols.length;
 
     var matrix = [];
     for (var i = 0; i < rows; i++){
       var r = (parseFloat(state.rates[i]) || 0) / 100;
       var rowArr = [];
       for (var j = 0; j < cols; j++){
-        var pmt = parseFloat(state.savings[j]) || 0;
+        var pmt = savingsCols[j];
         rowArr.push(calcYears(targetU, currentU, pmt, r));
       }
       matrix.push(rowArr);
@@ -393,24 +408,18 @@
   }
 
   function buildTable(){
-    state.savings.forEach(function(val, idx){
+    for (var idx = 0; idx < 5; idx++){
       var th = document.createElement('th');
-      var input = document.createElement('input');
-      input.type = 'number';
-      input.className = 'col-header-input';
-      input.value = val;
-      input.min = '0';
-      input.step = '100';
-      input.inputMode = 'decimal';
-      input.setAttribute('aria-label', '연저축액 ' + (idx+1) + ' (만원)');
-      input.addEventListener('input', function(){
-        state.savings[idx] = parseFloat(input.value) || 0;
-        renderCells();
-        saveState();
-      });
-      th.appendChild(input);
+      var valueSpan = document.createElement('span');
+      valueSpan.className = 'col-header-value';
+      valueSpan.textContent = '0';
+      var unitSpan = document.createElement('span');
+      unitSpan.className = 'col-header-unit';
+      unitSpan.textContent = '만원';
+      th.appendChild(valueSpan);
+      th.appendChild(unitSpan);
       els.headerRow.appendChild(th);
-    });
+    }
 
     state.rates.forEach(function(rateVal, i){
       var tr = document.createElement('tr');
@@ -436,13 +445,13 @@
       th.appendChild(pct);
       tr.appendChild(th);
 
-      state.savings.forEach(function(_, j){
+      for (var j = 0; j < 5; j++){
         var td = document.createElement('td');
         td.className = 'result-cell';
         td.dataset.row = i;
         td.dataset.col = j;
         tr.appendChild(td);
-      });
+      }
       els.tableBody.appendChild(tr);
     });
   }
@@ -451,9 +460,8 @@
     state = JSON.parse(JSON.stringify(DEFAULT_STATE));
     els.targetInput.value = state.target;
     els.currentInput.value = state.current;
+    els.monthlySavingsInput.value = state.monthlySavings;
     els.ageInput.value = '';
-    var colInputs = els.headerRow.querySelectorAll('.col-header-input');
-    colInputs.forEach(function(inp, idx){ inp.value = state.savings[idx]; });
     var rowInputs = els.tableBody.querySelectorAll('.row-header-input');
     rowInputs.forEach(function(inp, idx){ inp.value = state.rates[idx]; });
     var initialTheme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
@@ -482,12 +490,13 @@
     }
     if (saved){
       state = Object.assign({}, DEFAULT_STATE, saved);
-      if (!Array.isArray(state.savings) || state.savings.length !== 5) state.savings = DEFAULT_STATE.savings.slice();
       if (!Array.isArray(state.rates) || state.rates.length !== 4) state.rates = DEFAULT_STATE.rates.slice();
+      if (typeof state.monthlySavings !== 'number' || isNaN(state.monthlySavings)) state.monthlySavings = DEFAULT_STATE.monthlySavings;
     }
 
     els.targetInput.value = state.target;
     els.currentInput.value = state.current;
+    els.monthlySavingsInput.value = state.monthlySavings;
     els.ageInput.value = (state.age !== null && state.age !== undefined) ? state.age : '';
 
     var initialTheme = state.theme || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light');
@@ -497,7 +506,7 @@
     buildTable();
     renderCells();
 
-    ['targetInput','currentInput','ageInput'].forEach(function(id){
+    ['targetInput','currentInput','monthlySavingsInput','ageInput'].forEach(function(id){
       els[id].addEventListener('input', function(){ renderCells(); saveState(); });
     });
 
