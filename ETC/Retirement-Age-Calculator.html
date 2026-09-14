@@ -58,10 +58,11 @@
   @media (max-width:600px){ .growth-glyph{display:none;} }
 
   /* input cards */
-  .inputs-grid{display:flex; flex-wrap:wrap; gap:.85rem; margin-bottom:1.1rem;}
+  .inputs-grid{display:grid; grid-template-columns:1fr 1fr; gap:.85rem; margin-bottom:1.1rem;}
+  @media (max-width:380px){ .inputs-grid{grid-template-columns:1fr;} }
   .input-card{
-    flex:1 1 180px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-    padding:.95rem 1.1rem; box-shadow:0 2px 10px var(--shadow);
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:.95rem 1.1rem; box-shadow:0 2px 10px var(--shadow); min-width:0;
   }
   .input-card label{display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:.4rem;}
   .input-row{display:flex; align-items:baseline; gap:.4rem;}
@@ -111,10 +112,12 @@
   .row-header-input::-webkit-outer-spin-button,.row-header-input::-webkit-inner-spin-button{
     -webkit-appearance:none; margin:0;
   }
-  .result-cell{border-radius:8px; transition:background-color .35s ease;}
+  .result-cell{border-radius:10px; background:var(--surface-2);}
   .cell-main{font-weight:700; font-size:.98rem; font-variant-numeric:tabular-nums;}
   .cell-main.unreachable{color:var(--text-muted); font-weight:500; font-size:.85rem;}
   .cell-sub{font-size:.7rem; color:var(--text-muted); margin-top:.15rem;}
+  .cell-bar{margin:.45rem .35rem .05rem; height:4px; border-radius:2px; background:var(--border); overflow:hidden;}
+  .cell-bar-fill{display:block; height:100%; border-radius:2px; transition:width .35s ease, background-color .3s ease;}
 
   .actions-row{display:flex; justify-content:flex-end; margin-top:.9rem;}
   .btn-ghost{
@@ -232,7 +235,7 @@
   </section>
 
   <footer class="app-footer">
-    표의 진한 색일수록 더 빨리 목표에 도달하는 조합이에요 · 물가상승률·세금·변동성은 반영되지 않은 단순 계산이니 참고용으로만 활용하세요.
+    표의 막대가 길수록 더 빨리 목표에 도달하는 조합이에요 · 물가상승률·세금·변동성은 반영되지 않은 단순 계산이니 참고용으로만 활용하세요.
   </footer>
 </div>
 
@@ -272,8 +275,8 @@
   var state = JSON.parse(JSON.stringify(DEFAULT_STATE));
 
   var PALETTES = {
-    light: { base: [239, 232, 214], accent: [190, 138, 46] },
-    dark:  { base: [34, 50, 38],   accent: [216, 169, 75] }
+    light: { slow: [156, 90, 68],  fast: [190, 138, 46] },
+    dark:  { slow: [192, 127, 99], fast: [216, 169, 75] }
   };
 
   var sunIcon = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
@@ -379,7 +382,9 @@
     }
 
     var finiteVals = [];
-    matrix.forEach(function(row){ row.forEach(function(v){ if (isFinite(v) && v >= 0) finiteVals.push(v); }); });
+    matrix.forEach(function(row){
+      row.forEach(function(v){ if (isFinite(v) && v >= 0) finiteVals.push(v); });
+    });
     var minV = finiteVals.length ? Math.min.apply(null, finiteVals) : 0;
     var maxV = finiteVals.length ? Math.max.apply(null, finiteVals) : 1;
     var span = maxV - minV;
@@ -394,13 +399,21 @@
         var dur = formatDuration(val);
         var ageStr = formatAge(ageVal, val);
         var mainClass = dur.ok ? 'cell-main' : 'cell-main unreachable';
-        cell.innerHTML = '<div class="' + mainClass + '">' + dur.main + '</div>' + (ageStr ? '<div class="cell-sub">' + ageStr + '</div>' : '');
-        var t;
-        if (!isFinite(val)) t = 0;
-        else if (span <= 1e-9) t = 0.7;
-        else t = 1 - (val - minV) / span;
-        t = Math.max(0, Math.min(1, t)) * 0.85;
-        cell.style.backgroundColor = rgbToCss(mix(palette.base, palette.accent, t));
+
+        var barPct, barColor;
+        if (!isFinite(val)){
+          barPct = 6;
+          barColor = 'var(--border)';
+        } else {
+          var t = span <= 1e-9 ? 1 : Math.max(0, Math.min(1, 1 - (val - minV) / span));
+          barPct = Math.round(10 + t * 90);
+          barColor = rgbToCss(mix(palette.slow, palette.fast, t));
+        }
+
+        cell.innerHTML =
+          '<div class="' + mainClass + '">' + dur.main + '</div>' +
+          (ageStr ? '<div class="cell-sub">' + ageStr + '</div>' : '') +
+          '<div class="cell-bar"><span class="cell-bar-fill" style="width:' + barPct + '%; background-color:' + barColor + ';"></span></div>';
       }
     }
 
