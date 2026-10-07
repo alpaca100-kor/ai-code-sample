@@ -208,9 +208,9 @@ template = f'''<!DOCTYPE html>
       letter-spacing: -.025em;
     }}
     .file-list {{
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -254,7 +254,6 @@ template = f'''<!DOCTYPE html>
       }}
       .folder-heading {{ grid-column: 1 / -1; }}
       .file-content {{ padding: 22px; }}
-      .file-list {{ grid-template-columns: 1fr; }}
     }}
     @media (max-width: 480px) {{
       .container {{ width: min(100% - 24px, 1120px); }}
