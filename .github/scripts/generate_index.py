@@ -38,7 +38,7 @@ for index, (folder, files) in enumerate(categories):
         relative = path.as_posix()
         file_items.append(
             f'''              <li>
-                <a class="file-link" href="{escape(relative, quote=True)}">
+                <a class="file-link" href="{escape(relative, quote=True)}" target="_blank" rel="noopener noreferrer">
                   {escape(path.name)}
                 </a>
               </li>'''
