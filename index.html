@@ -122,7 +122,10 @@
       text-transform: uppercase;
     }
     .folder-button {
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       width: 100%;
       margin: 4px 0;
       padding: 11px 12px;
@@ -133,6 +136,28 @@
       text-align: left;
       cursor: pointer;
       transition: background 160ms ease, color 160ms ease;
+    }
+    .folder-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .folder-count {
+      flex: 0 0 auto;
+      min-width: 24px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(23,32,51,.06);
+      font-size: .72rem;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .folder-button.active .folder-count {
+      color: var(--accent);
+      background: rgba(99,91,255,.12);
     }
     .folder-button:hover { background: rgba(99,91,255,.07); }
     .folder-button.active {
@@ -229,37 +254,44 @@
           <button class="folder-button active" type="button"
             data-folder="folder-0" aria-controls="folder-0-panel"
             aria-selected="true">
-            AIE
+            <span class="folder-name">AIE</span>
+            <span class="folder-count" aria-label="2개">2</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-1" aria-controls="folder-1-panel"
             aria-selected="false">
-            Calendar
+            <span class="folder-name">Calendar</span>
+            <span class="folder-count" aria-label="3개">3</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-2" aria-controls="folder-2-panel"
             aria-selected="false">
-            EML
+            <span class="folder-name">EML</span>
+            <span class="folder-count" aria-label="3개">3</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-3" aria-controls="folder-3-panel"
             aria-selected="false">
-            ETC
+            <span class="folder-name">ETC</span>
+            <span class="folder-count" aria-label="1개">1</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-4" aria-controls="folder-4-panel"
             aria-selected="false">
-            MD-VE
+            <span class="folder-name">MD-VE</span>
+            <span class="folder-count" aria-label="3개">3</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-5" aria-controls="folder-5-panel"
             aria-selected="false">
-            PDF2JPG
+            <span class="folder-name">PDF2JPG</span>
+            <span class="folder-count" aria-label="2개">2</span>
           </button>
           <button class="folder-button" type="button"
             data-folder="folder-6" aria-controls="folder-6-panel"
             aria-selected="false">
-            PNG
+            <span class="folder-name">PNG</span>
+            <span class="folder-count" aria-label="3개">3</span>
           </button>
         </aside>
 
