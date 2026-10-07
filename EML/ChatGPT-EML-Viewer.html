@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="브라우저에서 안전하게 EML 이메일 파일을 열람하는 알파카 EML 뷰어">
+<title>알파카 EML 뷰어 | ALPACA TOOLS</title>
+
+<!--
+  외부 라이브러리
+  - PostalMime: RFC822/MIME/EML 파서
+  - DOMPurify: HTML 이메일 본문 XSS 정제
+  최종 GitHub Pages 배포 시 두 라이브러리를 로컬 lib/로 포함하면
+  완전한 오프라인 동작으로 전환할 수 있습니다.
+-->
+<script type="module">
+  import PostalMime from "https://cdn.jsdelivr.net/npm/postal-mime@4.0.0/dist/esm/postal-mime.js";
+  window.PostalMime = PostalMime;
+  window.dispatchEvent(new Event("postal-mime-ready"));
+</script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.16/dist/purify.min.js"></script>
+
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fb;
+  --border: #e4e7ec;
+  --text: #1f2937;
+  --muted: #667085;
+  --primary: #3b5ccc;
+  --primary-hover: #304db2;
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --success: #027a48;
+  --shadow: 0 8px 30px rgba(16, 24, 40, .07);
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR",
+    "Malgun Gothic", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+button, input { font: inherit; }
+
+button {
+  cursor: pointer;
+  border: 0;
+}
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.header-inner, .footer-inner {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.header-inner {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 800;
+  letter-spacing: -.03em;
+}
+
+.brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn {
+  min-height: 40px;
+  padding: 0 15px;
+  border-radius: 8px;
+  font-weight: 700;
+  transition: background .15s ease, transform .05s ease;
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn-primary {
+  color: #fff;
+  background: var(--primary);
+}
+
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-secondary {
+  color: var(--text);
+  background: #eef0f4;
+}
+
+.btn-secondary:hover { background: #e4e7ec; }
+
+main {
+  width: min(1180px, calc(100% - 32px));
+  margin: 28px auto 48px;
+}
+
+.file-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.file-bar.visible { display: flex; }
+
+.file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.file-size {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.drop-zone {
+  min-height: 390px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  background: var(--surface);
+  border: 2px dashed #cbd2df;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  transition: border-color .15s ease, background .15s ease;
+}
+
+.drop-zone.dragover {
+  border-color: var(--primary);
+  background: #f5f7ff;
+}
+
+.drop-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: #eef2ff;
+  color: var(--primary);
+  font-size: 30px;
+}
+
+.drop-zone h1 {
+  margin: 0 0 8px;
+  font-size: clamp(22px, 4vw, 30px);
+  letter-spacing: -.03em;
+}
+
+.drop-zone p {
+  max-width: 560px;
+  margin: 0 0 22px;
+  color: var(--muted);
+}
+
+.privacy-note {
+  margin-top: 16px !important;
+  font-size: 13px;
+}
+
+.privacy-note strong { color: var(--success); }
+
+.status {
+  display: none;
+  margin-bottom: 16px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.status.visible { display: block; }
+.status.error { color: var(--danger); background: var(--danger-bg); }
+.status.info { color: #175cd3; background: #eff8ff; }
+
+.viewer {
+  display: none;
+}
+
+.viewer.visible { display: block; }
+
+.email-card {
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.email-header {
+  padding: 24px 26px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.subject {
+  margin: 0 0 20px;
+  font-size: clamp(20px, 3vw, 27px);
+  line-height: 1.35;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: grid;
+  gap: 9px;
+}
+
+.meta-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  font-size: 14px;
+}
+
+.meta-label {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.meta-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.copy-btn {
+  padding: 2px 7px;
+  color: var(--primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.copy-btn:hover { background: #f2f4f7; border-color: var(--border); }
+
+.body-section {
+  padding: 28px 26px;
+}
+
+.body-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.body-content {
+  min-height: 180px;
+  overflow-x: auto;
+  font-size: 15px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * 이메일 HTML은 DOMPurify로 정제한 뒤 별도의 Shadow DOM에 넣습니다.
+ * Shadow DOM은 메일의 CSS가 ALPACA TOOLS UI를 오염시키는 것을 줄입니다.
+ */
+.email-sandbox {
+  min-height: 180px;
+}
+
+.text-body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+}
+
+.empty-body {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted);
+  background: var(--surface-soft);
+  border-radius: 8px;
+}
+
+.attachments {
+  display: none;
+  padding: 22px 26px 26px;
+  border-top: 1px solid var(--border);
+}
+
+.attachments.visible { display: block; }
+
+.attachments h2 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+.attachment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.attachment {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+}
+
+.attachment-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.attachment-icon {
+  flex: 0 0 auto;
+  font-size: 20px;
+}
+
+.attachment-info { min-width: 0; }
+
+.attachment-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.attachment-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.attachment-actions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  padding: 24px;
+  background: rgba(16, 24, 40, .72);
+}
+
+.preview-modal.visible {
+  display: grid;
+  place-items: center;
+}
+
+.preview-dialog {
+  width: min(1100px, 100%);
+  height: min(90vh, 850px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 12px;
+}
+
+.preview-head {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-title {
+  min-width: 0;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  background: #f2f4f7;
+  color: var(--text);
+  font-size: 20px;
+}
+
+.preview-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  background: #f2f4f7;
+}
+
+.preview-body iframe,
+.preview-body img {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.preview-body img {
+  object-fit: contain;
+  padding: 20px;
+}
+
+.site-footer {
+  padding: 22px 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 680px) {
+  .header-inner, main, .footer-inner {
+    width: min(100% - 20px, 1180px);
+  }
+
+  .header-inner { min-height: 58px; }
+  .header-title { display: none; }
+
+  main { margin-top: 18px; }
+
+  .drop-zone {
+    min-height: 330px;
+    padding: 30px 18px;
+  }
+
+  .email-header, .body-section, .attachments {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+
+  .meta-row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .copy-btn {
+    justify-self: start;
+  }
+
+  .attachment {
+    grid-template-columns: 1fr;
+  }
+
+  .attachment-actions {
+    justify-content: flex-start;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .preview-modal { padding: 10px; }
+}
+</style>
+</head>
+
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="#" aria-label="ALPACA TOOLS 홈">
+      ALPACA TOOLS
+      <small>PRIVATE · LOCAL PROCESSING</small>
+    </a>
+    <div class="header-title">알파카 EML 뷰어</div>
+    <div class="header-actions">
+      <button class="btn btn-primary" id="openButton" type="button">EML 파일 열기</button>
+      <input class="sr-only" id="fileInput" type="file" accept=".eml,message/rfc822">
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="file-bar" id="fileBar">
+    <div>
+      <div class="file-name" id="fileName">파일 없음</div>
+      <div class="file-size" id="fileSize"></div>
+    </div>
+    <button class="btn btn-secondary" id="newFileButton" type="button">새 파일 열기</button>
+  </div>
+
+  <div class="status" id="status" role="status" aria-live="polite"></div>
+
+  <section class="drop-zone" id="dropZone" aria-label="EML 파일 드롭 영역">
+    <div class="drop-icon" aria-hidden="true">✉</div>
+    <h1>EML 파일을 여기에 끌어다 놓으세요</h1>
+    <p>또는 아래 버튼을 눌러 PC에 저장된 EML 파일을 선택할 수 있습니다.</p>
+    <button class="btn btn-primary" id="dropOpenButton" type="button">EML 파일 열기</button>
+    <p class="privacy-note"><strong>개인정보 보호</strong> · 선택한 EML 파일은 브라우저 내부에서만 처리되며 서버로 업로드하지 않습니다.</p>
+  </section>
+
+  <section class="viewer" id="viewer" aria-label="이메일 열람 화면">
+    <article class="email-card">
+      <header class="email-header">
+        <h1 class="subject" id="subject"></h1>
+        <div class="meta" id="meta"></div>
+      </header>
+
+      <section class="body-section">
+        <div class="body-toolbar">
+          <button class="btn btn-secondary" id="copyBodyButton" type="button">본문 복사</button>
+        </div>
+        <div class="body-content" id="bodyContent"></div>
+      </section>
+
+      <section class="attachments" id="attachmentsSection">
+        <h2>첨부파일</h2>
+        <div class="attachment-list" id="attachmentList"></div>
+      </section>
+    </article>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span>ALPACA TOOLS · 알파카 EML 뷰어</span>
+    <span>파일은 브라우저에서만 처리됩니다.</span>
+  </div>
+</footer>
+
+<div class="preview-modal" id="previewModal" role="dialog" aria-modal="true" aria-labelledby="previewTitle">
+  <div class="preview-dialog">
+    <div class="preview-head">
+      <div class="preview-title" id="previewTitle">첨부파일 미리보기</div>
+      <button class="preview-close" id="previewClose" type="button" aria-label="미리보기 닫기">×</button>
+    </div>
+    <div class="preview-body" id="previewBody"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const state = {
+    file: null,
+    email: null,
+    objectUrls: new Set(),
+    previewUrl: null,
+    shadowRoot: null
+  };
+
+  const $ = (selector) => document.querySelector(selector);
+
+  const elements = {
+    openButton: $("#openButton"),
+    dropOpenButton: $("#dropOpenButton"),
+    newFileButton: $("#newFileButton"),
+    fileInput: $("#fileInput"),
+    dropZone: $("#dropZone"),
+    fileBar: $("#fileBar"),
+    fileName: $("#fileName"),
+    fileSize: $("#fileSize"),
+    status: $("#status"),
+    viewer: $("#viewer"),
+    subject: $("#subject"),
+    meta: $("#meta"),
+    bodyContent: $("#bodyContent"),
+    copyBodyButton: $("#copyBodyButton"),
+    attachmentsSection: $("#attachmentsSection"),
+    attachmentList: $("#attachmentList"),
+    previewModal: $("#previewModal"),
+    previewTitle: $("#previewTitle"),
+    previewBody: $("#previewBody"),
+    previewClose: $("#previewClose")
+  };
+
+  function showStatus(message, type = "info") {
+    elements.status.textContent = message;
+    elements.status.className = `status visible ${type}`;
+  }
+
+  function clearStatus() {
+    elements.status.textContent = "";
+    elements.status.className = "status";
+  }
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes)) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  }
+
+  function isEmlFile(file) {
+    if (!file) return false;
+    const name = file.name || "";
+    return /\.eml$/i.test(name) ||
+      file.type === "message/rfc822" ||
+      file.type === "application/octet-stream" && /\.eml$/i.test(name);
+  }
+
+  function validateFile(file) {
+    if (!isEmlFile(file)) {
+      throw new Error("EML 파일만 열 수 있습니다. 파일 확장자를 확인해 주세요.");
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error("파일 크기가 50MB를 초과합니다. 현재 버전은 50MB 이하의 EML 파일을 기준으로 설계되었습니다.");
+    }
+
+    if (file.size === 0) {
+      throw new Error("선택한 파일이 비어 있습니다.");
+    }
+  }
+
+  async function handleFileSelect(file) {
+    try {
+      validateFile(file);
+      clearStatus();
+      resetViewer();
+      elements.fileName.textContent = file.name;
+      elements.fileSize.textContent = formatBytes(file.size);
+      elements.fileBar.classList.add("visible");
+      showStatus("EML 파일을 분석하는 중입니다…", "info");
+
+      const raw = await file.arrayBuffer();
+      if (!window.PostalMime) {
+        throw new Error("EML 파서 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인하거나 라이브러리를 로컬로 포함해 주세요.");
+      }
+
+      const email = await window.PostalMime.parse(raw);
+      state.file = file;
+      state.email = email;
+      renderEmail(email);
+
+      elements.dropZone.style.display = "none";
+      elements.viewer.classList.add("visible");
+      showStatus("EML 파일을 정상적으로 열었습니다.", "info");
+    } catch (error) {
+      console.error("EML parsing error:", error);
+      resetViewer();
+      showStatus(
+        error instanceof Error
+          ? error.message
+          : "EML 파일을 열 수 없습니다. 파일이 손상되었거나 지원하지 않는 형식일 수 있습니다.",
+        "error"
+      );
+    }
+  }
+
+  function resetViewer() {
+    revokeObjectUrls();
+    state.file = null;
+    state.email = null;
+    state.shadowRoot = null;
+    elements.viewer.classList.remove("visible");
+    elements.dropZone.style.display = "";
+    elements.subject.textContent = "";
+    elements.meta.replaceChildren();
+    elements.bodyContent.replaceChildren();
+    elements.attachmentList.replaceChildren();
+    elements.attachmentsSection.classList.remove("visible");
+    elements.fileBar.classList.remove("visible");
+    elements.fileName.textContent = "파일 없음";
+    elements.fileSize.textContent = "";
+  }
+
+  function revokeObjectUrls() {
+    for (const url of state.objectUrls) {
+      URL.revokeObjectURL(url);
+    }
+    state.objectUrls.clear();
+
+    if (state.previewUrl) {
+      URL.revokeObjectURL(state.previewUrl);
+      state.previewUrl = null;
+    }
+  }
+
+  function addObjectUrl(blob) {
+    const url = URL.createObjectURL(blob);
+    state.objectUrls.add(url);
+    return url;
+  }
+
+  function createMetaRow(label, value) {
+    const row = document.createElement("div");
+    row.className = "meta-row";
+
+    const labelElement = document.createElement("div");
+    labelElement.className = "meta-label";
+    labelElement.textContent = label;
+
+    const valueElement = document.createElement("div");
+    valueElement.className = "meta-value";
+    valueElement.textContent = value;
+
+    const copy = document.createElement("button");
+    copy.className = "copy-btn";
+    copy.type = "button";
+    copy.textContent = "복사";
+    copy.setAttribute("aria-label", `${label} 정보 복사`);
+    copy.addEventListener("click", () => copyText(value, `${label} 정보를 복사했습니다.`));
+
+    row.append(labelElement, valueElement, copy);
+    return row;
+  }
+
+  function normalizeAddresses(value) {
+    if (!value) return "";
+    if (Array.isArray(value)) {
+      return value.map(item => {
+        if (typeof item === "string") return item;
+        const name = item.name || "";
+        const address = item.address || item.email || "";
+        return name && address ? `${name} <${address}>` : name || address;
+      }).filter(Boolean).join(", ");
+    }
+    if (typeof value === "object") {
+      const name = value.name || "";
+      const address = value.address || value.email || "";
+      return name && address ? `${name} <${address}>` : name || address;
+    }
+    return String(value);
+  }
+
+  function formatDate(value) {
+    if (!value) return "";
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+
+    return new Intl.DateTimeFormat("ko-KR", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  }
+
+  function renderEmail(email) {
+    const subject = email.subject || "(제목 없음)";
+    elements.subject.textContent = subject;
+
+    const metaItems = [
+      ["보낸 사람", normalizeAddresses(email.from)],
+      ["받는 사람", normalizeAddresses(email.to)],
+      ["참조", normalizeAddresses(email.cc)],
+      ["숨은 참조", normalizeAddresses(email.bcc)],
+      ["날짜", formatDate(email.date)],
+      ["Reply-To", normalizeAddresses(email.replyTo)]
+    ];
+
+    elements.meta.replaceChildren(
+      ...metaItems
+        .filter(([, value]) => value)
+        .map(([label, value]) => createMetaRow(label, value))
+    );
+
+    renderBody(email);
+    renderAttachments(email.attachments || []);
+  }
+
+  function renderBody(email) {
+    elements.bodyContent.replaceChildren();
+
+    if (email.html) {
+      renderHtmlBody(email.html);
+      return;
+    }
+
+    if (email.text) {
+      const pre = document.createElement("pre");
+      pre.className = "text-body";
+      pre.textContent = email.text;
+      elements.bodyContent.appendChild(pre);
+      return;
+    }
+
+    const empty = document.createElement("div");
+    empty.className = "empty-body";
+    empty.textContent = "표시할 이메일 본문이 없습니다.";
+    elements.bodyContent.appendChild(empty);
+  }
+
+  function renderHtmlBody(html) {
+    if (!window.DOMPurify) {
+      const fallback = document.createElement("div");
+      fallback.className = "empty-body";
+      fallback.textContent = "HTML 본문을 안전하게 표시하기 위한 보안 라이브러리를 불러오지 못했습니다.";
+      elements.bodyContent.appendChild(fallback);
+      return;
+    }
+
+    /*
+     * 이메일 본문은 신뢰하지 않습니다.
+     * - script/event-handler 제거
+     * - iframe/object/embed/form 등 위험하거나 불필요한 요소 차단
+     * - 외부 리소스는 로딩하지 않도록 src/href 정책을 제한
+     */
+    const cleanHtml = DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      FORBID_TAGS: [
+        "script", "iframe", "object", "embed", "form", "input",
+        "button", "textarea", "select", "option", "style", "base",
+        "meta", "link", "video", "audio", "source"
+      ],
+      FORBID_ATTR: [
+        "style", "srcset", "onerror", "onload", "onclick", "onmouseover",
+        "onfocus", "onblur", "formaction", "action"
+      ],
+      ALLOW_UNKNOWN_PROTOCOLS: false
+    });
+
+    const host = document.createElement("div");
+    host.className = "email-sandbox";
+    elements.bodyContent.appendChild(host);
+
+    /*
+     * Shadow DOM을 사용해 메일 본문의 CSS가 웹앱 전체 UI에 영향을 주지 않게 합니다.
+     * sanitized HTML은 ShadowRoot 안에만 삽입합니다.
+     */
+    const shadow = host.attachShadow({ mode: "closed" });
+    state.shadowRoot = shadow;
+
+    const style = document.createElement("style");
+    style.textContent = `
+      :host { all: initial; }
+      * { box-sizing: border-box; }
+      .mail { color: #1f2937; font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Arial, sans-serif; overflow-wrap: anywhere; }
+      img { max-width: 100%; height: auto; }
+      table { max-width: 100%; border-collapse: collapse; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      a { color: #2454c6; }
+    `;
+    shadow.appendChild(style);
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "mail";
+    wrapper.innerHTML = cleanHtml;
+    shadow.appendChild(wrapper);
+
+    // 안전한 웹앱 동작을 위해 이메일 본문의 모든 링크를 새 탭으로 열고 noopener를 적용합니다.
+    shadow.querySelectorAll("a").forEach(link => {
+      link.setAttribute("target", "_blank");
+      link.setAttribute("rel", "noopener noreferrer");
+    });
+
+    // 외부 이미지의 자동 로딩을 방지합니다. CID 이미지 등 로컬 첨부 이미지는
+    // 현재 버전에서는 원본 HTML의 참조 형태를 그대로 표시하지 않고 생략될 수 있습니다.
+    shadow.querySelectorAll("img").forEach(img => {
+      const src = img.getAttribute("src") || "";
+      if (!src.startsWith("data:")) {
+        img.removeAttribute("src");
+        img.setAttribute("alt", img.getAttribute("alt") || "외부 이미지");
+      }
+    });
+  }
+
+  function renderAttachments(attachments) {
+    elements.attachmentList.replaceChildren();
+
+    const usable = attachments.filter(item => item && item.content);
+    if (!usable.length) {
+      elements.attachmentsSection.classList.remove("visible");
+      return;
+    }
+
+    elements.attachmentsSection.classList.add("visible");
+
+    usable.forEach((attachment, index) => {
+      const content = toUint8Array(attachment.content);
+      const mimeType = attachment.mimeType || attachment.contentType || "application/octet-stream";
+      const filename = attachment.filename || `첨부파일-${index + 1}`;
+      const blob = new Blob([content], { type: mimeType });
+      const url = addObjectUrl(blob);
+
+      const row = document.createElement("div");
+      row.className = "attachment";
+
+      const main = document.createElement("div");
+      main.className = "attachment-main";
+
+      const icon = document.createElement("div");
+      icon.className = "attachment-icon";
+      icon.textContent = getAttachmentIcon(mimeType);
+      icon.setAttribute("aria-hidden", "true");
+
+      const info = document.createElement("div");
+      info.className = "attachment-info";
+
+      const name = document.createElement("div");
+      name.className = "attachment-name";
+      name.textContent = filename;
+
+      const meta = document.createElement("div");
+      meta.className = "attachment-meta";
+      meta.textContent = `${mimeType} · ${formatBytes(content.byteLength)}`;
+
+      info.append(name, meta);
+      main.append(icon, info);
+
+      const actions = document.createElement("div");
+      actions.className = "attachment-actions";
+
+      if (isPreviewable(mimeType)) {
+        const previewButton = document.createElement("button");
+        previewButton.className = "btn btn-secondary";
+        previewButton.type = "button";
+        previewButton.textContent = "열기";
+        previewButton.addEventListener("click", () =>
+          previewAttachment(url, mimeType, filename)
+        );
+        actions.appendChild(previewButton);
+      }
+
+      const downloadButton = document.createElement("button");
+      downloadButton.className = "btn btn-primary";
+      downloadButton.type = "button";
+      downloadButton.textContent = "다운로드";
+      downloadButton.addEventListener("click", () =>
+        downloadAttachment(url, filename)
+      );
+      actions.appendChild(downloadButton);
+
+      row.append(main, actions);
+      elements.attachmentList.appendChild(row);
+    });
+  }
+
+  function toUint8Array(content) {
+    if (content instanceof Uint8Array) return content;
+    if (content instanceof ArrayBuffer) return new Uint8Array(content);
+    if (ArrayBuffer.isView(content)) {
+      return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+    }
+    if (typeof content === "string") {
+      return new TextEncoder().encode(content);
+    }
+    throw new TypeError("지원하지 않는 첨부파일 데이터 형식입니다.");
+  }
+
+  function getAttachmentIcon(mimeType) {
+    if (mimeType.startsWith("image/")) return "▧";
+    if (mimeType === "application/pdf") return "▤";
+    if (mimeType.startsWith("text/")) return "≡";
+    return "📎";
+  }
+
+  function isPreviewable(mimeType) {
+    return mimeType.startsWith("image/") || mimeType === "application/pdf";
+  }
+
+  function previewAttachment(url, mimeType, filename) {
+    closePreview();
+
+    state.previewUrl = url;
+    elements.previewTitle.textContent = filename;
+    elements.previewBody.replaceChildren();
+
+    if (mimeType.startsWith("image/")) {
+      const img = document.createElement("img");
+      img.src = url;
+      img.alt = filename;
+      elements.previewBody.appendChild(img);
+    } else if (mimeType === "application/pdf") {
+      const iframe = document.createElement("iframe");
+      iframe.src = url;
+      iframe.title = `${filename} PDF 미리보기`;
+      elements.previewBody.appendChild(iframe);
+    }
+
+    elements.previewModal.classList.add("visible");
+    elements.previewClose.focus();
+  }
+
+  function closePreview() {
+    elements.previewModal.classList.remove("visible");
+    elements.previewBody.replaceChildren();
+    elements.previewTitle.textContent = "첨부파일 미리보기";
+    state.previewUrl = null;
+  }
+
+  function downloadAttachment(url, filename) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  async function copyText(text, successMessage = "복사했습니다.") {
+    try {
+      await navigator.clipboard.writeText(text);
+      showStatus(successMessage, "info");
+    } catch (error) {
+      console.error("Clipboard error:", error);
+      showStatus("클립보드 복사에 실패했습니다. 브라우저의 클립보드 권한을 확인해 주세요.", "error");
+    }
+  }
+
+  function getPlainBodyForCopy() {
+    if (!state.email) return "";
+    return state.email.text ||
+      elements.bodyContent.innerText ||
+      "";
+  }
+
+  elements.openButton.addEventListener("click", () => elements.fileInput.click());
+  elements.dropOpenButton.addEventListener("click", () => elements.fileInput.click());
+  elements.newFileButton.addEventListener("click", () => {
+    resetViewer();
+    clearStatus();
+    elements.fileInput.value = "";
+    elements.fileInput.click();
+  });
+
+  elements.fileInput.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (file) handleFileSelect(file);
+    event.target.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach(type => {
+    elements.dropZone.addEventListener(type, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      elements.dropZone.classList.add("dragover");
+    });
+  });
+
+  ["dragleave", "drop"].forEach(type => {
+    elements.dropZone.addEventListener(type, event => {
+      event.preventDefault();
+      event.stopPropagation();
+      elements.dropZone.classList.remove("dragover");
+    });
+  });
+
+  elements.dropZone.addEventListener("drop", event => {
+    const file = event.dataTransfer?.files?.[0];
+    if (file) handleFileSelect(file);
+  });
+
+  elements.copyBodyButton.addEventListener("click", () => {
+    const body = getPlainBodyForCopy();
+    if (!body) {
+      showStatus("복사할 본문이 없습니다.", "error");
+      return;
+    }
+    copyText(body, "이메일 본문을 복사했습니다.");
+  });
+
+  elements.previewClose.addEventListener("click", closePreview);
+
+  elements.previewModal.addEventListener("click", event => {
+    if (event.target === elements.previewModal) closePreview();
+  });
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && elements.previewModal.classList.contains("visible")) {
+      closePreview();
+    }
+  });
+
+  window.addEventListener("beforeunload", revokeObjectUrls);
+
+  window.addEventListener("postal-mime-ready", () => {
+    // 파서가 준비되면 초기 화면은 그대로 유지합니다.
+    console.info("PostalMime loaded.");
+  });
+
+  // CDN 라이브러리 로딩 실패 여부를 조금 늦게 확인합니다.
+  setTimeout(() => {
+    if (!window.PostalMime || !window.DOMPurify) {
+      showStatus(
+        "외부 보안/EML 파서 라이브러리를 아직 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.",
+        "error"
+      );
+    }
+  }, 2500);
+})();
+</script>
+</body>
+</html>
