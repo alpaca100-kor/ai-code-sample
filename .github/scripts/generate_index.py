@@ -28,7 +28,8 @@ for index, (folder, files) in enumerate(categories):
         f'''          <button class="folder-button{" active" if index == 0 else ""}" type="button"
             data-folder="{folder_id}" aria-controls="{folder_id}-panel"
             aria-selected="{"true" if index == 0 else "false"}">
-            {escape(folder)}
+            <span class="folder-name">{escape(folder)}</span>
+            <span class="folder-count" aria-label="{len(files)}개">{len(files)}</span>
           </button>'''
     )
 
@@ -181,7 +182,10 @@ template = f'''<!DOCTYPE html>
       text-transform: uppercase;
     }}
     .folder-button {{
-      display: block;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       width: 100%;
       margin: 4px 0;
       padding: 11px 12px;
@@ -192,6 +196,28 @@ template = f'''<!DOCTYPE html>
       text-align: left;
       cursor: pointer;
       transition: background 160ms ease, color 160ms ease;
+    }}
+    .folder-name {{
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }}
+    .folder-count {{
+      flex: 0 0 auto;
+      min-width: 24px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(23,32,51,.06);
+      font-size: .72rem;
+      font-weight: 700;
+      line-height: 1.4;
+      text-align: center;
+    }}
+    .folder-button.active .folder-count {{
+      color: var(--accent);
+      background: rgba(99,91,255,.12);
     }}
     .folder-button:hover {{ background: rgba(99,91,255,.07); }}
     .folder-button.active {{
