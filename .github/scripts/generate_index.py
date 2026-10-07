@@ -4,91 +4,58 @@ from html import escape
 root = Path(".")
 output = root / "index.html"
 
-# Existing folders get friendly names.
-# Any new top-level folder containing HTML files is also detected.
-category_names = {
-    "AIE": (
-        "Alpaca Image Editor",
-        "이미지 편집기(병합, 회전, 자르기 등)",
-    ),
-    "MD-VE": (
-        "Markdown Viewer & Editor",
-        "마크다운 문서를 편리하게 확인하고 편집하는 도구",
-    ),
-    "PNG": (
-        "PNG Background Eraser",
-        "PNG 이미지의 배경을 제거하는 웹 애플리케이션",
-    ),
-}
-
+# Detect every top-level folder containing HTML files.
 categories = []
 
 for folder in sorted(root.iterdir(), key=lambda p: p.name.lower()):
     if not folder.is_dir() or folder.name.startswith("."):
         continue
 
-    files = sorted(folder.glob("*.html"))
+    files = sorted(folder.glob("*.html"), key=lambda p: p.name.lower())
 
     if not files:
         continue
 
-    title, description = category_names.get(
-        folder.name,
-        (
-            folder.name,
-            f"{folder.name} 관련 HTML 프로젝트",
-        ),
+    categories.append((folder.name, files))
+
+folder_items = []
+file_panels = []
+
+for index, (folder, files) in enumerate(categories):
+    folder_id = f"folder-{index}"
+
+    folder_items.append(
+        f'''          <button class="folder-button{" active" if index == 0 else ""}" type="button"
+            data-folder="{folder_id}" aria-controls="{folder_id}-panel"
+            aria-selected="{"true" if index == 0 else "false"}">
+            {escape(folder)}
+          </button>'''
     )
 
-    categories.append(
-        (folder.name, title, description, files)
-    )
-
-sections = []
-
-for folder, title, description, files in categories:
-    cards = []
-
+    file_items = []
     for path in files:
         relative = path.as_posix()
-        name = path.stem
-
-        cards.append(
-            f'''          <a class="card" href="{escape(relative, quote=True)}">
-            <h3 class="card-title">{escape(name)}</h3>
-            <div class="card-footer">
-              <span>Open Project</span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </div>
-          </a>'''
+        file_items.append(
+            f'''              <li>
+                <a class="file-link" href="{escape(relative, quote=True)}">
+                  {escape(path.name)}
+                </a>
+              </li>'''
         )
 
-    section_id = "".join(
-        c.lower() if c.isalnum() else "-"
-        for c in folder
-    ).strip("-")
-
-    project_word = (
-        "Project" if len(files) == 1 else "Projects"
+    file_panels.append(
+        f'''          <section class="file-panel{" active" if index == 0 else ""}"
+            id="{folder_id}-panel" data-panel="{folder_id}"
+            aria-labelledby="{folder_id}-label">
+            <h2 id="{folder_id}-label">{escape(folder)}</h2>
+            <ul class="file-list">
+{chr(10).join(file_items)}
+            </ul>
+          </section>'''
     )
 
-    sections.append(
-        f'''      <section class="section" aria-labelledby="{section_id}-title">
-        <div class="section-header">
-          <div>
-            <h2 id="{section_id}-title">{escape(title)}</h2>
-            <p class="section-description">{escape(description)}</p>
-          </div>
-          <span class="count">{len(files)} {project_word}</span>
-        </div>
-
-        <div class="card-grid">
-{chr(10).join(cards)}
-        </div>
-      </section>'''
-    )
-
-sections_html = "\n\n".join(sections)
+folders_html = chr(10).join(folder_items)
+panels_html = chr(10).join(file_panels)
 
 template = f'''<!DOCTYPE html>
 <html lang="ko">
@@ -105,7 +72,6 @@ template = f'''<!DOCTYPE html>
       --muted: #697386;
       --border: rgba(23,32,51,.08);
       --shadow: 0 18px 50px rgba(35,45,70,.09);
-      --shadow-hover: 0 22px 60px rgba(35,45,70,.15);
       --accent: #635bff;
       --accent-2: #8b5cf6;
       --radius-lg: 24px;
@@ -125,6 +91,7 @@ template = f'''<!DOCTYPE html>
         "Noto Sans KR", "Malgun Gothic", sans-serif;
       line-height: 1.6;
     }}
+    button, a {{ font: inherit; }}
     a {{ color: inherit; text-decoration: none; }}
     .container {{ width: min(1120px, calc(100% - 40px)); margin: 0 auto; }}
     header {{ padding: 72px 0 44px; }}
@@ -188,96 +155,81 @@ template = f'''<!DOCTYPE html>
       font-size: 1.05rem;
     }}
     main {{ padding: 0 0 80px; }}
-    .section {{ margin-top: 34px; }}
-    .section-header {{
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 16px;
-    }}
-    h2 {{ margin: 0; font-size: 1.35rem; letter-spacing: -.025em; }}
-    .section-description {{ margin: 4px 0 0; color: var(--muted); font-size: .9rem; }}
-    .count {{
-      flex: 0 0 auto;
-      padding: 5px 10px;
-      border-radius: 999px;
-      color: var(--muted);
-      background: rgba(23,32,51,.05);
-      font-size: .78rem;
-      font-weight: 700;
-    }}
-    .card-grid {{
+    .browser {{
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }}
-    .card {{
-      position: relative;
-      display: flex;
-      min-height: 132px;
+      grid-template-columns: minmax(190px, 260px) minmax(0, 1fr);
+      min-height: 420px;
       overflow: hidden;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 22px;
       border: 1px solid var(--border);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       background: var(--surface);
-      box-shadow: 0 8px 28px rgba(35,45,70,.055);
+      box-shadow: var(--shadow);
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
     }}
-    .card::after {{
-      content: "";
-      position: absolute;
-      width: 90px;
-      height: 90px;
-      right: -35px;
-      bottom: -40px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      opacity: 0;
-      transition: opacity 180ms ease;
+    .folder-list {{
+      padding: 20px 14px;
+      border-right: 1px solid var(--border);
+      background: rgba(255,255,255,.42);
     }}
-    .card:hover {{
-      transform: translateY(-5px);
-      border-color: rgba(99,91,255,.2);
-      box-shadow: var(--shadow-hover);
-    }}
-    .card:hover::after {{ opacity: .08; }}
-    .card-title {{
-      position: relative;
-      z-index: 1;
-      margin: 0;
-      font-size: 1rem;
+    .folder-heading {{
+      margin: 0 10px 12px;
+      color: var(--muted);
+      font-size: .78rem;
       font-weight: 700;
-      letter-spacing: -.015em;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }}
-    .card-footer {{
-      position: relative;
-      z-index: 1;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 20px;
+    .folder-button {{
+      display: block;
+      width: 100%;
+      margin: 4px 0;
+      padding: 11px 12px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--text);
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition: background 160ms ease, color 160ms ease;
+    }}
+    .folder-button:hover {{ background: rgba(99,91,255,.07); }}
+    .folder-button.active {{
       color: var(--accent);
-      font-size: .82rem;
+      background: rgba(99,91,255,.1);
       font-weight: 700;
     }}
-    .arrow {{
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      background: rgba(99,91,255,.08);
-      transition: transform 180ms ease, background 180ms ease;
+    .file-content {{ padding: 28px; }}
+    .file-panel {{ display: none; }}
+    .file-panel.active {{ display: block; }}
+    .file-panel h2 {{
+      margin: 0 0 20px;
+      font-size: 1.35rem;
+      letter-spacing: -.025em;
     }}
-    .card:hover .arrow {{
-      transform: translateX(3px);
-      background: rgba(99,91,255,.14);
+    .file-list {{
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }}
+    .file-link {{
+      display: block;
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: rgba(255,255,255,.62);
+      box-shadow: 0 6px 20px rgba(35,45,70,.04);
+      transition: transform 160ms ease, border-color 160ms ease,
+        box-shadow 160ms ease, background 160ms ease;
+    }}
+    .file-link:hover {{
+      transform: translateY(-2px);
+      border-color: rgba(99,91,255,.22);
+      background: #fff;
+      box-shadow: 0 10px 26px rgba(35,45,70,.08);
     }}
     footer {{
       padding: 26px 0 42px;
@@ -285,30 +237,35 @@ template = f'''<!DOCTYPE html>
       text-align: center;
       font-size: .82rem;
     }}
-    a:focus-visible {{
+    button:focus-visible, a:focus-visible {{
       outline: 3px solid rgba(99,91,255,.35);
-      outline-offset: 4px;
-      border-radius: 8px;
+      outline-offset: 3px;
     }}
-    @media (max-width: 820px) {{
+    @media (max-width: 700px) {{
       header {{ padding-top: 32px; }}
       .hero {{ padding: 34px 28px; }}
-      .card-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+      .browser {{ grid-template-columns: 1fr; }}
+      .folder-list {{
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }}
+      .folder-heading {{ grid-column: 1 / -1; }}
+      .file-content {{ padding: 22px; }}
+      .file-list {{ grid-template-columns: 1fr; }}
     }}
-    @media (max-width: 560px) {{
+    @media (max-width: 480px) {{
       .container {{ width: min(100% - 24px, 1120px); }}
-      header {{ padding-bottom: 26px; }}
       .hero {{ padding: 30px 22px; border-radius: 20px; }}
       h1 {{ font-size: 2.35rem; }}
       .hero-description {{ font-size: .94rem; }}
-      .section {{ margin-top: 28px; }}
-      .section-header {{ align-items: center; }}
-      .card-grid {{ grid-template-columns: 1fr; }}
-      .card {{ min-height: 118px; }}
+      .folder-list {{ grid-template-columns: 1fr; }}
     }}
     @media (prefers-reduced-motion: reduce) {{
       html {{ scroll-behavior: auto; }}
-      *, *::before, *::after {{ transition: none !important; }}
+      *, *::before {{ transition: none !important; }}
     }}
   </style>
 </head>
@@ -324,14 +281,46 @@ template = f'''<!DOCTYPE html>
         </p>
       </div>
     </header>
+
     <main>
-{sections_html}
+      <div class="browser">
+        <aside class="folder-list" aria-label="폴더 목록">
+          <p class="folder-heading">Folders</p>
+{folders_html}
+        </aside>
+
+        <div class="file-content">
+{panels_html}
+        </div>
+      </div>
     </main>
+
     <footer>AI Sample Code · All projects</footer>
   </div>
+
+  <script>
+    const folderButtons = document.querySelectorAll(".folder-button");
+    const filePanels = document.querySelectorAll(".file-panel");
+
+    folderButtons.forEach((button) => {{
+      button.addEventListener("click", () => {{
+        const target = button.dataset.folder;
+
+        folderButtons.forEach((item) => {{
+          const active = item === button;
+          item.classList.toggle("active", active);
+          item.setAttribute("aria-selected", String(active));
+        }});
+
+        filePanels.forEach((panel) => {{
+          panel.classList.toggle("active", panel.dataset.panel === target);
+        }});
+      }});
+    }});
+  </script>
 </body>
 </html>
 '''
 
 output.write_text(template, encoding="utf-8")
-print(f"Generated {output}")
+print(f"Generated {{output}}")
