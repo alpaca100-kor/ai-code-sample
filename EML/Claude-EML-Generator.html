@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알파카 EML 생성기</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#1d2330;--sub:#5f6b7a;--bd:#dde1e7;--pri:#2f5d50;--priTx:#fff;--soft:#e8f0ed;--err:#a3271b;--errBg:#fdecea}
+@media (prefers-color-scheme:dark){:root{--bg:#14171b;--card:#1c2025;--tx:#e7eaee;--sub:#9aa5b1;--bd:#2d333b;--pri:#7fc4ad;--priTx:#10201b;--soft:#22302b;--err:#ffb4a9;--errBg:#3b1d19}}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{display:flex;flex-direction:column;min-height:100vh;background:var(--bg);color:var(--tx);font:15px/1.6 "Pretendard","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif}
+header,footer{background:var(--card);padding:12px 20px}
+header{border-bottom:1px solid var(--bd)}
+footer{border-top:1px solid var(--bd);color:var(--sub);font-size:13px}
+.brand{font-weight:700;color:var(--pri)}
+h1{font-size:19px;margin:2px 0}
+header p{margin:0;color:var(--sub);font-size:14px}
+main{flex:1;width:100%;max-width:860px;margin:0 auto;padding:20px}
+form{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:20px;display:grid;gap:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label,legend{display:block;font-weight:600;margin-bottom:4px;padding:0}
+fieldset{border:0;margin:0;padding:0;min-width:0}
+input[type=text],input[type=datetime-local],textarea{width:100%;font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px}
+textarea{resize:vertical;min-height:70px}
+textarea.body{min-height:160px}
+textarea.code{font:13px/1.5 ui-monospace,Consolas,Menlo,monospace}
+[aria-invalid=true]{border-color:var(--err)!important}
+input:focus-visible,textarea:focus-visible,.btn:focus-visible,.drop:focus-visible,input[type=radio]:focus-visible{outline:3px solid var(--pri);outline-offset:2px}
+.hint{color:var(--sub);font-size:13px;margin:3px 0 0}
+.radios{display:flex;flex-wrap:wrap;gap:6px 18px}
+.radios label{font-weight:400;display:flex;gap:6px;align-items:center;margin:0}
+.drop{border:2px dashed var(--bd);border-radius:10px;text-align:center;padding:22px 12px;cursor:pointer;background:var(--bg)}
+.drop.over{border-color:var(--pri);background:var(--soft)}
+.drop p{margin:0 0 10px}
+.btn{font:inherit;cursor:pointer;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;padding:9px 16px}
+.btn.pri{background:var(--pri);color:var(--priTx);border-color:var(--pri);font-weight:600}
+.btn.sm{padding:3px 10px;font-size:13px}
+.btn:disabled{opacity:.6;cursor:wait}
+ul.files{list-style:none;margin:8px 0 0;padding:0}
+ul.files li{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:6px 0;border-top:1px solid var(--bd)}
+.nm{flex:1;min-width:160px;overflow-wrap:anywhere}
+.meta{color:var(--sub);font-size:13px}
+.actions{display:flex;flex-wrap:wrap;gap:10px}
+.box{border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.box ul{margin:4px 0 0;padding-left:20px}
+#err{background:var(--errBg);color:var(--err);border:1px solid var(--err)}
+#ok{background:var(--soft);border:1px solid var(--pri)}
+[hidden]{display:none!important}
+@media (max-width:640px){main{padding:12px}form{padding:14px}.grid{grid-template-columns:1fr}header,footer{padding:10px 12px}}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">ALPACA TOOLS</span>
+  <h1>알파카 EML 생성기</h1>
+  <p>브라우저에서 이메일 내용을 작성하고 EML 파일로 저장할 수 있습니다.</p>
+</header>
+
+<main>
+  <div id="err" class="box" role="alert" hidden></div>
+  <div id="ok" class="box" role="status" hidden></div>
+
+  <form id="form" novalidate>
+    <div><label for="from">보낸 사람</label><input type="text" id="from" placeholder="알파카 &lt;alpaca@example.com&gt;" autocomplete="off"></div>
+    <div><label for="to">받는 사람</label><textarea id="to" rows="2" placeholder="user@example.com" spellcheck="false"></textarea><p class="hint">여러 주소는 쉼표 또는 줄바꿈으로 구분합니다.</p></div>
+    <div class="grid">
+      <div><label for="cc">참조</label><textarea id="cc" rows="2" spellcheck="false"></textarea></div>
+      <div><label for="bcc">숨은 참조</label><textarea id="bcc" rows="2" spellcheck="false"></textarea><p class="hint">테스트용이므로 숨은 참조도 EML 파일에 포함됩니다.</p></div>
+    </div>
+    <div class="grid">
+      <div><label for="replyTo">회신 주소</label><input type="text" id="replyTo" autocomplete="off"></div>
+      <div><label for="date">날짜</label><input type="datetime-local" id="date" step="60"></div>
+    </div>
+    <div><label for="subject">제목</label><input type="text" id="subject" placeholder="알파카 테스트 메일"></div>
+
+    <fieldset>
+      <legend>본문 형식</legend>
+      <div class="radios">
+        <label><input type="radio" name="mode" value="text" checked> 일반 텍스트</label>
+        <label><input type="radio" name="mode" value="html"> HTML</label>
+        <label><input type="radio" name="mode" value="both"> 텍스트 + HTML (multipart/alternative)</label>
+      </div>
+    </fieldset>
+    <div id="textWrap"><label for="text">본문 (텍스트)</label><textarea id="text" class="body" placeholder="이메일 본문을 입력하세요."></textarea></div>
+    <div id="htmlWrap" hidden><label for="html">본문 (HTML 코드)</label><textarea id="html" class="body code" spellcheck="false" placeholder="&lt;h2&gt;알파카 EML 생성기&lt;/h2&gt;"></textarea><p class="hint">입력한 HTML은 이 화면에서 실행되지 않고 EML에 그대로 저장됩니다.</p></div>
+
+    <div>
+      <label for="dropBtn">첨부파일</label>
+      <div class="drop" id="drop" role="group" aria-label="첨부파일 끌어놓기 영역">
+        <p>파일을 이곳으로 끌어놓으세요.</p>
+        <button type="button" class="btn" id="dropBtn">파일 선택</button>
+        <input type="file" id="fileInput" multiple hidden>
+      </div>
+      <ul class="files" id="fileList" aria-label="첨부된 파일 목록"></ul>
+    </div>
+
+    <div><label for="fname">저장할 파일명</label><input type="text" id="fname" placeholder="비워두면 제목으로 저장됩니다"><p class="hint">확장자 .eml은 자동으로 붙습니다.</p></div>
+
+    <div class="actions">
+      <button type="submit" class="btn pri" id="genBtn">EML 파일 생성</button>
+      <button type="button" class="btn" id="resetBtn">입력 내용 초기화</button>
+    </div>
+  </form>
+</main>
+
+<footer>이 도구는 이메일을 실제로 발송하지 않습니다. 입력한 내용은 서버로 전송되지 않고, EML 파일만 생성해 PC에 저장합니다.</footer>
+
+<script>
+(() => {
+'use strict';
+
+/* ========== 상태 / 상수 ========== */
+const MAX_TOTAL = 35 * 1024 * 1024;   // 첨부 원본 합계 (Base64 후 약 47MB → EML 50MB 이내)
+const CRLF = '\r\n';
+const ASCII = /^[\x20-\x7E]*$/;
+const EMAIL_RE = /^[A-Za-z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TYPES = { pdf:'application/pdf', png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', txt:'text/plain', csv:'text/csv', zip:'application/zip',
+  docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+const state = { files: [] };           // 첨부파일 목록 [{id, file}]
+let seq = 0;
+const enc = new TextEncoder();
+const $ = s => document.querySelector(s);
+const el = {};
+['form','from','to','cc','bcc','replyTo','date','subject','text','html','textWrap','htmlWrap','drop','dropBtn','fileInput','fileList','fname','genBtn','resetBtn','err','ok']
+  .forEach(id => el[id] = document.getElementById(id));
+
+function h(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const k in props) { if (k === 'class') n.className = props[k]; else if (k.startsWith('on')) n.addEventListener(k.slice(2), props[k]); else n.setAttribute(k, props[k]); }
+  n.append(...kids);
+  return n;
+}
+
+/* ========== 공용 유틸 ========== */
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(1) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+const oneLine = s => String(s || '').replace(/[\r\n]+/g, ' ').trim();   // 헤더 인젝션 방지
+const safeName = s => oneLine(s).replace(/[\\/:*?"<>|]/g, '_').replace(/^\.+/, '').slice(0, 120);
+function toB64(bytes) {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function rand(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(b => b.toString(16).padStart(2, '0')).join(''); }
+function nowLocal() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/* ========== 입력값 검증 ========== */
+function parseAddresses(raw) {
+  const out = [], bad = [];
+  raw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean).forEach(item => {
+    const m = item.match(/^(.*?)\s*<([^<>]+)>$/);
+    const name = m ? m[1].replace(/^"|"$/g, '').trim() : '';
+    const addr = (m ? m[2] : item).trim();
+    EMAIL_RE.test(addr) ? out.push({ name: oneLine(name), addr }) : bad.push(item);
+  });
+  return { out, bad };
+}
+
+/* ========== 헤더 생성 ========== */
+function encodeWord(str) {            // RFC 2047 (UTF-8, Base64) — 멀티바이트 문자를 쪼개지 않음
+  const words = []; let cur = '', len = 0;
+  for (const ch of str) {
+    const n = enc.encode(ch).length;
+    if (len + n > 45) { words.push(cur); cur = ''; len = 0; }
+    cur += ch; len += n;
+  }
+  if (cur) words.push(cur);
+  return words.map(w => `=?UTF-8?B?${toB64(enc.encode(w))}?=`).join(CRLF + ' ');
+}
+const headerText = s => ASCII.test(s) ? s : encodeWord(s);
+function fmtAddr({ name, addr }) {
+  if (!name) return addr;
+  const n = ASCII.test(name) ? (/^[\w ]+$/.test(name) ? name : `"${name.replace(/["\\]/g, '\\$&')}"`) : encodeWord(name);
+  return `${n} <${addr}>`;
+}
+const fmtAddrs = l => l.map(fmtAddr).join(',' + CRLF + ' ');
+function rfcDate(d) {
+  const p = n => String(n).padStart(2, '0'), off = -d.getTimezoneOffset(), a = Math.abs(off);
+  return `${DAYS[d.getDay()]}, ${p(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${off >= 0 ? '+' : '-'}${p(Math.floor(a / 60))}${p(a % 60)}`;
+}
+function makeMessageId(from) {
+  const dom = from && from.length ? from[0].addr.split('@')[1] : 'alpaca-eml.local';
+  return `<${rand(12)}.${Date.now().toString(36)}@${dom}>`;
+}
+
+/* ========== 본문 / MIME 생성 ========== */
+function makeBoundary(avoid) {
+  let b; do { b = '----=_AlpacaEML_' + rand(16); } while (avoid.some(t => t.includes(b)));
+  return b;
+}
+function textPart(type, text) {       // text/plain, text/html 파트 (헤더 + 빈 줄 + 본문)
+  const body = text.replace(/\r\n|\r|\n/g, CRLF);
+  const longLine = body.split(CRLF).some(l => l.length > 300 && enc.encode(l).length > 990);
+  const cte = longLine ? 'base64' : '8bit';   // 998바이트 초과 줄은 Base64로 안전하게 전송
+  const data = longLine ? toB64(enc.encode(body)).replace(/.{1,76}/g, '$&' + CRLF) : body + CRLF;
+  return `Content-Type: ${type}; charset="UTF-8"${CRLF}Content-Transfer-Encoding: ${cte}${CRLF}${CRLF}${data}`;
+}
+function buildBodyEntity(d) {
+  if (d.mode === 'text') return textPart('text/plain', d.text);
+  if (d.mode === 'html') return textPart('text/html', d.html);
+  const b = makeBoundary([d.text, d.html]);
+  return `Content-Type: multipart/alternative; boundary="${b}"${CRLF}${CRLF}--${b}${CRLF}${textPart('text/plain', d.text)}--${b}${CRLF}${textPart('text/html', d.html)}--${b}--${CRLF}`;
+}
+function guessType(f) {
+  const t = f.type && /^[\w.+-]+\/[\w.+-]+$/.test(f.type) ? f.type : '';
+  return t || TYPES[(f.name.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
+}
+async function buildAttachment(f) {   // 첨부파일 MIME 파트 (문자열/Base64 조각 배열)
+  const name = safeName(f.name) || 'attachment';
+  const q = ASCII.test(name) ? name : encodeWord(name);
+  const star = ASCII.test(name) ? '' : `; filename*=UTF-8''${encodeURIComponent(name).replace(/['()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())}`;
+  const parts = [`Content-Type: ${guessType(f)}; name="${q}"${CRLF}Content-Disposition: attachment; filename="${q}"${star}${CRLF}Content-Transfer-Encoding: base64${CRLF}${CRLF}`];
+  const buf = new Uint8Array(await f.arrayBuffer());
+  const CHUNK = 57 * 400;             // 3의 배수 + 76자 줄 단위 → 조각마다 패딩 없이 이어 붙일 수 있음
+  for (let i = 0; i < buf.length; i += CHUNK) parts.push(toB64(buf.subarray(i, i + CHUNK)).replace(/.{1,76}/g, '$&' + CRLF));
+  return parts;
+}
+async function buildEML(d, files) {
+  const hd = [];
+  const add = (k, v) => { if (v) hd.push(`${k}: ${v}${CRLF}`); };
+  add('From', d.from.length && fmtAddrs(d.from));
+  add('To', d.to.length && fmtAddrs(d.to));
+  add('Cc', d.cc.length && fmtAddrs(d.cc));
+  add('Bcc', d.bcc.length && fmtAddrs(d.bcc));
+  add('Reply-To', d.replyTo.length && fmtAddrs(d.replyTo));
+  add('Subject', d.subject && headerText(d.subject));
+  add('Date', rfcDate(d.date));
+  add('Message-ID', makeMessageId(d.from));
+  add('X-Generator', 'Alpaca EML Generator');
+  add('MIME-Version', '1.0');
+  const body = buildBodyEntity(d);
+  if (!files.length) return new Blob([...hd, body], { type: 'message/rfc822' });
+
+  const b = makeBoundary([body]);
+  const parts = [...hd, `Content-Type: multipart/mixed; boundary="${b}"${CRLF}${CRLF}--${b}${CRLF}`, body];
+  for (const f of files) parts.push(`--${b}${CRLF}`, ...await buildAttachment(f));
+  parts.push(`--${b}--${CRLF}`);
+  return new Blob(parts, { type: 'message/rfc822' });
+}
+
+/* ========== 다운로드 ========== */
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = h('a', { href: url, download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);   // 다운로드 시작 후 Object URL 해제
+}
+
+/* ========== UI: 메시지 ========== */
+function showErrors(title, items = [], field) {
+  el.ok.hidden = true;
+  el.err.replaceChildren(h('strong', {}, title), ...(items.length ? [h('ul', {}, ...items.map(t => h('li', {}, t)))] : []));
+  el.err.hidden = false;
+  if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+}
+function clearMessages() {
+  el.err.hidden = el.ok.hidden = true;
+  document.querySelectorAll('[aria-invalid]').forEach(n => n.removeAttribute('aria-invalid'));
+}
+
+/* ========== UI: 첨부파일 ========== */
+function addFiles(list) {
+  let total = state.files.reduce((s, x) => s + x.file.size, 0), tooBig = false;
+  for (const f of list) {
+    if (total + f.size > MAX_TOTAL) { tooBig = true; continue; }
+    total += f.size; state.files.push({ id: ++seq, file: f });
+  }
+  renderFiles();
+  tooBig ? showErrors('파일 크기가 너무 큽니다.', [`더 작은 파일을 선택해주세요. (첨부파일 합계 최대 ${fmtSize(MAX_TOTAL)})`]) : el.err.hidden = true;
+}
+function removeFile(id) { state.files = state.files.filter(x => x.id !== id); renderFiles(); }
+function renderFiles() {
+  el.fileList.replaceChildren(...state.files.map(({ id, file }) => h('li', {},
+    h('span', { 'aria-hidden': 'true' }, '📎'),
+    h('span', { class: 'nm' }, file.name),
+    h('span', { class: 'meta' }, `${guessType(file)} · ${fmtSize(file.size)}`),
+    h('button', { type: 'button', class: 'btn sm', 'aria-label': `${file.name} 삭제`, onclick: () => removeFile(id) }, '삭제'))));
+}
+
+/* ========== UI: 폼 ========== */
+function currentMode() { return document.querySelector('input[name=mode]:checked').value; }
+function syncMode() {
+  const m = currentMode();
+  el.textWrap.hidden = m === 'html'; el.htmlWrap.hidden = m === 'text';
+}
+function syncFileName() { el.fname.placeholder = safeName(el.subject.value) ? safeName(el.subject.value) + '.eml' : '비워두면 제목으로 저장됩니다'; }
+function resetForm() {
+  el.form.reset(); state.files = []; renderFiles(); clearMessages();
+  el.date.value = nowLocal(); syncMode(); syncFileName();
+}
+
+/* ========== 생성 처리 ========== */
+async function handleGenerate(e) {
+  e.preventDefault(); clearMessages();
+  // 1) 입력값 검증
+  const fields = [['보낸 사람', 'from'], ['받는 사람', 'to'], ['참조', 'cc'], ['숨은 참조', 'bcc'], ['회신 주소', 'replyTo']];
+  const d = { mode: currentMode(), subject: oneLine(el.subject.value), text: el.text.value, html: el.html.value };
+  const problems = []; let firstBad = null;
+  for (const [label, id] of fields) {
+    const r = parseAddresses(el[id].value); d[id] = r.out;
+    if (r.bad.length) { problems.push(`${label}: ${r.bad.join(', ')}`); firstBad = firstBad || el[id]; el[id].setAttribute('aria-invalid', 'true'); }
+  }
+  if (problems.length) return showErrors('올바른 이메일 주소를 입력해주세요.', problems, firstBad);
+  if (d.mode === 'text') d.html = ''; if (d.mode === 'html') d.text = '';
+  if (!d.subject && !(d.text + d.html).trim()) return showErrors('제목 또는 본문을 입력해주세요.', [], el.subject);
+  d.date = el.date.value ? new Date(el.date.value) : new Date();
+  if (isNaN(d.date)) d.date = new Date();
+
+  // 2) 생성 + 다운로드
+  el.genBtn.disabled = true; el.genBtn.textContent = '생성 중…';
+  try {
+    const blob = await buildEML(d, state.files.map(x => x.file));
+    const base = (safeName(el.fname.value) || safeName(d.subject) || 'mail').replace(/\.eml$/i, '') || 'mail';
+    downloadBlob(blob, base + '.eml');
+    el.ok.textContent = `EML 파일을 생성했습니다: ${base}.eml (${fmtSize(blob.size)})`; el.ok.hidden = false;
+  } catch (err) {
+    console.error(err);
+    showErrors('EML 파일을 생성하는 중 오류가 발생했습니다.', ['입력 내용을 확인한 후 다시 시도해주세요.']);
+  } finally {
+    el.genBtn.disabled = false; el.genBtn.textContent = 'EML 파일 생성';
+  }
+}
+
+/* ========== 이벤트 연결 ========== */
+el.form.addEventListener('submit', handleGenerate);
+el.resetBtn.addEventListener('click', resetForm);
+el.subject.addEventListener('input', syncFileName);
+document.querySelectorAll('input[name=mode]').forEach(r => r.addEventListener('change', syncMode));
+el.dropBtn.addEventListener('click', () => el.fileInput.click());
+el.fileInput.addEventListener('change', () => { addFiles([...el.fileInput.files]); el.fileInput.value = ''; });
+['dragenter', 'dragover'].forEach(t => el.drop.addEventListener(t, e => { e.preventDefault(); el.drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => el.drop.addEventListener(t, e => { e.preventDefault(); el.drop.classList.remove('over'); }));
+el.drop.addEventListener('drop', e => addFiles([...e.dataTransfer.files]));
+// 영역 밖에 놓았을 때 브라우저가 파일을 열어버리는 것 방지
+['dragover', 'drop'].forEach(t => window.addEventListener(t, e => e.preventDefault()));
+
+resetForm();
+})();
+</script>
+</body>
+</html>

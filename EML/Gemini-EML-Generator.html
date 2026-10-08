@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알파카 EML 생성기 - Alpaca EML Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        alpaca: {
+                            50: '#f4f7f6',
+                            100: '#e3eae7',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200 flex flex-col min-h-screen">
+
+    <header class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-emerald-500/20">
+                    <i class="fa-solid fa-envelope-circle-check"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-emerald-600 dark:text-emerald-400 tracking-wider uppercase">ALPACA TOOLS</span>
+                    <h1 class="text-xl font-bold tracking-tight">알파카 EML 생성기</h1>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="themeToggleBtn" onclick="toggleTheme()" aria-label="테마 전환" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                    <i id="themeIcon" class="fa-solid fa-moon text-slate-600 dark:text-yellow-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-5xl w-full mx-auto px-4 py-8 space-y-6">
+        
+        <!-- Info Banner -->
+        <div class="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/50 rounded-2xl p-4 flex items-start space-x-3 text-emerald-900 dark:text-emerald-200 shadow-sm">
+            <i class="fa-solid fa-shield-halved text-emerald-600 dark:text-emerald-400 mt-1 text-lg"></i>
+            <div class="text-sm">
+                <span class="font-semibold">안전한 브라우저 전용 도구:</span> 이 도구는 이메일을 실제로 발송하지 않습니다. 입력한 모든 정보와 첨부파일은 오직 브라우저 내부에서만 처리되어 표준 MIME 형식의 `.eml` 파일로 생성됩니다. 외부로 데이터가 전송되지 않습니다.
+            </div>
+        </div>
+
+        <!-- Inline Notification Box -->
+        <div id="alertBox" class="hidden rounded-xl p-4 text-sm flex items-center justify-between transition-all duration-300">
+            <div class="flex items-center space-x-2">
+                <i id="alertIcon" class="fa-solid fa-circle-exclamation text-lg"></i>
+                <span id="alertMessage">오류 메시지</span>
+            </div>
+            <button onclick="hideAlert()" class="text-xs opacity-70 hover:opacity-100 font-semibold px-2 py-1"><i class="fa-solid fa-xmark"></i> 닫기</button>
+        </div>
+
+        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-5">
+            <h2 class="text-lg font-semibold flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <i class="fa-solid fa-address-book text-emerald-500"></i>
+                <span>이메일 기본 정보</span>
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- From -->
+                <div>
+                    <label for="fromInput" class="block text-sm font-medium mb-1">보낸 사람 (From) <span class="text-red-500">*</span></label>
+                    <input type="text" id="fromInput" placeholder="홍길동 &lt;sender@example.com&gt; 또는 sender@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- To -->
+                <div>
+                    <label for="toInput" class="block text-sm font-medium mb-1">받는 사람 (To) <span class="text-red-500">*</span></label>
+                    <input type="text" id="toInput" placeholder="recipient@example.com (여러 명은 쉼표 구분)" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- Cc -->
+                <div>
+                    <label for="ccInput" class="block text-sm font-medium mb-1">참조 (Cc)</label>
+                    <input type="text" id="ccInput" placeholder="cc@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- Bcc -->
+                <div>
+                    <label for="bccInput" class="block text-sm font-medium mb-1">숨은 참조 (Bcc)</label>
+                    <input type="text" id="bccInput" placeholder="bcc@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- Reply-To -->
+                <div>
+                    <label for="replyToInput" class="block text-sm font-medium mb-1">회신 주소 (Reply-To)</label>
+                    <input type="text" id="replyToInput" placeholder="reply@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+
+                <!-- Date -->
+                <div>
+                    <label for="dateInput" class="block text-sm font-medium mb-1">날짜 (Date)</label>
+                    <input type="text" id="dateInput" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+            </div>
+
+            <!-- Subject -->
+            <div>
+                <label for="subjectInput" class="block text-sm font-medium mb-1">제목 (Subject) <span class="text-red-500">*</span></label>
+                <input type="text" id="subjectInput" placeholder="이메일 제목을 입력하세요" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <!-- Custom Filename -->
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                <label for="filenameInput" class="block text-sm font-medium mb-1">저장할 EML 파일명 (선택사항)</label>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="filenameInput" placeholder="비워두면 제목으로 자동 설정됩니다" class="flex-grow px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                    <span class="text-sm font-medium text-slate-500 px-2">.eml</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 dark:border-slate-800 pb-3 gap-2">
+                <h2 class="text-lg font-semibold flex items-center space-x-2">
+                    <i class="fa-solid fa-pen-to-square text-emerald-500"></i>
+                    <span>이메일 본문</span>
+                </h2>
+                <!-- Body Format Selector -->
+                <div class="flex items-center space-x-4 text-sm font-medium bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
+                    <label class="cursor-pointer px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5" id="labelPlain">
+                        <input type="radio" name="bodyFormat" value="plain" onchange="switchBodyFormat()" class="text-emerald-600 focus:ring-emerald-500">
+                        <span>일반 텍스트</span>
+                    </label>
+                    <label class="cursor-pointer px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5" id="labelHtml">
+                        <input type="radio" name="bodyFormat" value="html" onchange="switchBodyFormat()" class="text-emerald-600 focus:ring-emerald-500">
+                        <span>HTML</span>
+                    </label>
+                    <label class="cursor-pointer px-3 py-1.5 rounded-lg transition-colors flex items-center space-x-1.5" id="labelBoth">
+                        <input type="radio" name="bodyFormat" value="both" checked onchange="switchBodyFormat()" class="text-emerald-600 focus:ring-emerald-500">
+                        <span>텍스트 + HTML (Multipart)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Plain Text Box -->
+            <div id="plainContainer" class="space-y-1.5">
+                <label for="plainTextBody" class="text-xs font-semibold uppercase text-slate-500 tracking-wider">일반 텍스트 본문 (Plain Text)</label>
+                <textarea id="plainTextBody" rows="6" placeholder="안녕하세요.&#10;&#10;알파카 EML 생성기로 만든 테스트 메일입니다." class="w-full px-3.5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"></textarea>
+            </div>
+
+            <!-- HTML Box -->
+            <div id="htmlContainer" class="space-y-1.5">
+                <label for="htmlTextBody" class="text-xs font-semibold uppercase text-slate-500 tracking-wider">HTML 본문 코드 (HTML Markup)</label>
+                <textarea id="htmlTextBody" rows="8" placeholder="&lt;h2&gt;알파카 EML 생성기&lt;/h2&gt;&#10;&lt;p&gt;HTML 형식의 이메일입니다.&lt;/p&gt;" class="w-full px-3.5 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono"></textarea>
+            </div>
+        </section>
+
+        <section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 class="text-lg font-semibold flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <i class="fa-solid fa-paperclip text-emerald-500"></i>
+                <span>첨부파일</span>
+            </h2>
+
+            <!-- Dropzone -->
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 dark:hover:border-emerald-500 rounded-2xl p-8 text-center cursor-pointer transition-all bg-slate-50/50 dark:bg-slate-900/50 flex flex-col items-center justify-center space-y-3">
+                <div class="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950 flex items-center justify-center text-emerald-500 text-xl shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div>
+                    <p class="font-medium text-sm">파일을 이곳으로 끌어놓거나 마우스로 선택하세요</p>
+                    <p class="text-xs text-slate-500 mt-1">모든 형식의 파일을 지원합니다 (다중 선택 가능)</p>
+                </div>
+                <button type="button" onclick="document.getElementById('fileInput').click()" class="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shadow-sm">
+                    파일 선택
+                </button>
+                <input type="file" id="fileInput" multiple class="hidden" onchange="handleFileSelect(event)">
+            </div>
+
+            <!-- Attached Files List -->
+            <div id="fileListContainer" class="hidden space-y-2 pt-2">
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider">첨부된 파일 목록 (<span id="fileCount">0</span>)</div>
+                <div id="fileItems" class="space-y-2"></div>
+            </div>
+        </section>
+
+        <div class="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4">
+            <button onclick="resetForm()" class="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-300 dark:border-slate-700 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>입력 내용 초기화</span>
+            </button>
+            <button onclick="generateAndDownloadEML()" class="w-full sm:w-auto px-8 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-download"></i>
+                <span>EML 파일 생성 및 다운로드</span>
+            </button>
+        </div>
+
+    </main>
+
+    <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
+        <p>&copy; 2026 Alpaca Tools. All rights reserved. 브라우저 전용 로컬 EML 생성기.</p>
+    </footer>
+
+    <script>
+        // Global state for attached files
+        let attachedFiles = [];
+
+        // Initialize App on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            setDefaultDate();
+            switchBodyFormat();
+            setupDragAndDrop();
+        });
+
+        // Theme management
+        function initTheme() {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            }
+            updateThemeIcon();
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            updateThemeIcon();
+        }
+
+        function updateThemeIcon() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const icon = document.getElementById('themeIcon');
+            if (isDark) {
+                icon.className = 'fa-solid fa-sun text-yellow-400';
+            } else {
+                icon.className = 'fa-solid fa-moon text-slate-600';
+            }
+        }
+
+        // Set current date in RFC 5322 format
+        function setDefaultDate() {
+            const now = new Date();
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const dayName = days[now.getDay()];
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = months[now.getMonth()];
+            const year = now.getFullYear();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            // Timezone offset
+            const tzOffsetMinutes = -now.getTimezoneOffset();
+            const sign = tzOffsetMinutes >= 0 ? '+' : '-';
+            const absOffset = Math.abs(tzOffsetMinutes);
+            const tzHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+            const tzMins = String(absOffset % 60).padStart(2, '0');
+            const tzStr = `${sign}${tzHours}${tzMins}`;
+
+            const rfcDate = `${dayName}, ${day} ${month} ${year} ${hours}:${minutes}:${seconds} ${tzStr}`;
+            document.getElementById('dateInput').value = rfcDate;
+        }
+
+        // Switch body format visibility
+        function switchBodyFormat() {
+            const format = document.querySelector('input[name="bodyFormat"]:checked').value;
+            const plainContainer = document.getElementById('plainContainer');
+            const htmlContainer = document.getElementById('htmlContainer');
+
+            if (format === 'plain') {
+                plainContainer.classList.remove('hidden');
+                htmlContainer.classList.add('hidden');
+            } else if (format === 'html') {
+                plainContainer.classList.add('hidden');
+                htmlContainer.classList.remove('hidden');
+            } else {
+                plainContainer.classList.remove('hidden');
+                htmlContainer.classList.remove('hidden');
+            }
+        }
+
+        // Drag and drop setup
+        function setupDragAndDrop() {
+            const dropZone = document.getElementById('dropZone');
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.add('border-emerald-500', 'bg-emerald-50/20');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.classList.remove('border-emerald-500', 'bg-emerald-50/20');
+                }, false);
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }, false);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+            e.target.value = ''; // Reset input
+        }
+
+        function handleFiles(files) {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                attachedFiles.push(file);
+            }
+            renderFileList();
+        }
+
+        function removeFile(index) {
+            attachedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        function renderFileList() {
+            const container = document.getElementById('fileListContainer');
+            const listEl = document.getElementById('fileItems');
+            const countEl = document.getElementById('fileCount');
+
+            if (attachedFiles.length === 0) {
+                container.classList.add('hidden');
+                listEl.innerHTML = '';
+                return;
+            }
+
+            container.classList.remove('hidden');
+            countEl.textContent = attachedFiles.length;
+            listEl.innerHTML = '';
+
+            attachedFiles.forEach((file, index) => {
+                const sizeKB = (file.size / 1024).toFixed(1);
+                const sizeStr = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(1)} MB` : `${sizeKB} KB`;
+                
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 text-sm';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3 truncate">
+                        <i class="fa-solid fa-paperclip text-emerald-500"></i>
+                        <span class="font-medium truncate">${escapeHtml(file.name)}</span>
+                        <span class="text-xs text-slate-500 bg-slate-200/60 dark:bg-slate-700 px-2 py-0.5 rounded-md">${sizeStr}</span>
+                    </div>
+                    <button type="button" onclick="removeFile(${index})" class="text-red-500 hover:text-red-700 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors">
+                        <i class="fa-solid fa-trash-can mr-1"></i> 삭제
+                    </button>
+                `;
+                listEl.appendChild(div);
+            });
+        }
+
+        // Inline notification banner
+        function showAlert(message, type = 'error') {
+            const box = document.getElementById('alertBox');
+            const msgEl = document.getElementById('alertMessage');
+            const iconEl = document.getElementById('alertIcon');
+
+            msgEl.textContent = message;
+            box.className = 'rounded-xl p-4 text-sm flex items-center justify-between transition-all duration-300 shadow-sm';
+
+            if (type === 'error') {
+                box.classList.add('bg-red-50', 'dark:bg-red-950/60', 'border', 'border-red-200', 'dark:border-red-900', 'text-red-900', 'dark:text-red-200');
+                iconEl.className = 'fa-solid fa-circle-exclamation text-lg text-red-500';
+            } else {
+                box.classList.add('bg-emerald-50', 'dark:bg-emerald-950/60', 'border', 'border-emerald-200', 'dark:border-emerald-900', 'text-emerald-900', 'dark:text-emerald-200');
+                iconEl.className = 'fa-solid fa-circle-check text-lg text-emerald-500';
+            }
+
+            box.classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function hideAlert() {
+            document.getElementById('alertBox').classList.add('hidden');
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // RFC 2047 Encoding for non-ASCII headers (Base64 MIME encoded-word)
+        function encodeHeader(str) {
+            if (!str) return '';
+            // Check if string contains non-ASCII characters
+            if (/^[\x00-\x7F]*$/.test(str)) {
+                return str;
+            }
+            // UTF-8 base64 encoded word
+            const utf8Bytes = new TextEncoder().encode(str);
+            let binary = '';
+            for (let i = 0; i < utf8Bytes.byteLength; i++) {
+                binary += String.fromCharCode(utf8Bytes[i]);
+            }
+            const base64 = btoa(binary);
+            return `=?UTF-8?B?${base64}?=`;
+        }
+
+        // Generate unique boundary string
+        function generateBoundary(prefix = 'AlpacaEML') {
+            const randomHex = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            return `----=_${prefix}_${randomHex}`;
+        }
+
+        // Base64 helper for attachments with proper 76-char wrapping
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            const chunkSize = 0x8000; // Chunk to prevent call stack size exceeded
+            for (let i = 0; i < len; i += chunkSize) {
+                binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+            }
+            return btoa(binary);
+        }
+
+        function chunkBase64(base64Str, lineLength = 76) {
+            let result = '';
+            for (let i = 0; i < base64Str.length; i += lineLength) {
+                result += base64Str.substring(i, i + lineLength) + '\r\n';
+            }
+            return result;
+        }
+
+        // Main EML Generation Function
+        async function generateAndDownloadEML() {
+            hideAlert();
+
+            const from = document.getElementById('fromInput').value.trim();
+            const to = document.getElementById('toInput').value.trim();
+            const cc = document.getElementById('ccInput').value.trim();
+            const bcc = document.getElementById('bccInput').value.trim();
+            const replyTo = document.getElementById('replyToInput').value.trim();
+            const date = document.getElementById('dateInput').value.trim();
+            const subject = document.getElementById('subjectInput').value.trim();
+            const bodyFormat = document.querySelector('input[name="bodyFormat"]:checked').value;
+            const plainText = document.getElementById('plainTextBody').value;
+            const htmlText = document.getElementById('htmlTextBody').value;
+
+            // Validation
+            if (!from) {
+                showAlert('보낸 사람(From) 주소를 입력해주세요.');
+                document.getElementById('fromInput').focus();
+                return;
+            }
+            if (!to) {
+                showAlert('받는 사람(To) 주소를 입력해주세요.');
+                document.getElementById('toInput').focus();
+                return;
+            }
+            if (!subject) {
+                showAlert('제목(Subject)을 입력해주세요.');
+                document.getElementById('subjectInput').focus();
+                return;
+            }
+
+            if (bodyFormat === 'plain' && !plainText.trim()) {
+                showAlert('일반 텍스트 본문을 입력해주세요.');
+                document.getElementById('plainTextBody').focus();
+                return;
+            }
+            if (bodyFormat === 'html' && !htmlText.trim()) {
+                showAlert('HTML 본문 코드를 입력해주세요.');
+                document.getElementById('htmlTextBody').focus();
+                return;
+            }
+            if (bodyFormat === 'both' && !plainText.trim() && !htmlText.trim()) {
+                showAlert('일반 텍스트 또는 HTML 본문 중 하나 이상을 입력해주세요.');
+                document.getElementById('plainTextBody').focus();
+                return;
+            }
+
+            try {
+                let emlLines = [];
+
+                // 1. Headers
+                emlLines.push(`From: ${encodeHeader(from)}`);
+                emlLines.push(`To: ${encodeHeader(to)}`);
+                if (cc) emlLines.push(`Cc: ${encodeHeader(cc)}`);
+                if (bcc) emlLines.push(`Bcc: ${encodeHeader(bcc)}`);
+                if (replyTo) emlLines.push(`Reply-To: ${encodeHeader(replyTo)}`);
+                emlLines.push(`Subject: ${encodeHeader(subject)}`);
+                emlLines.push(`Date: ${date || new Date().toUTCString()}`);
+                
+                const messageId = `<${Date.now()}.${Math.random().toString(36).substring(2, 10)}@alpaca.tools>`;
+                emlLines.push(`Message-ID: ${messageId}`);
+                emlLines.push(`MIME-Version: 1.0`);
+
+                // Determine structure: mixed vs alternative vs single
+                const hasAttachments = attachedFiles.length > 0;
+                const isAlternative = (bodyFormat === 'both') || (bodyFormat === 'plain' && htmlText.trim()) || (bodyFormat === 'html' && plainText.trim());
+
+                let mixedBoundary = hasAttachments ? generateBoundary('Mixed') : '';
+                let altBoundary = isAlternative ? generateBoundary('Alternative') : '';
+
+                // Content-Type Header construction
+                if (hasAttachments) {
+                    emlLines.push(`Content-Type: multipart/mixed;\r\n\tboundary="${mixedBoundary}"`);
+                    emlLines.push(``);
+                    emlLines.push(`This is a multi-part message in MIME format.`);
+                    emlLines.push(`--${mixedBoundary}`);
+                }
+
+                if (isAlternative) {
+                    emlLines.push(`Content-Type: multipart/alternative;\r\n\tboundary="${altBoundary}"`);
+                    emlLines.push(``);
+                    
+                    // Plain part
+                    emlLines.push(`--${altBoundary}`);
+                    emlLines.push(`Content-Type: text/plain; charset="UTF-8"`);
+                    emlLines.push(`Content-Transfer-Encoding: 8bit`);
+                    emlLines.push(``);
+                    emlLines.push(plainText || '(본문 없음)');
+                    emlLines.push(``);
+
+                    // HTML part
+                    emlLines.push(`--${altBoundary}`);
+                    emlLines.push(`Content-Type: text/html; charset="UTF-8"`);
+                    emlLines.push(`Content-Transfer-Encoding: 8bit`);
+                    emlLines.push(``);
+                    emlLines.push(htmlText || `<p>${escapeHtml(plainText)}</p>`);
+                    emlLines.push(``);
+
+                    emlLines.push(`--${altBoundary}--`);
+                } else {
+                    // Single body part
+                    if (bodyFormat === 'html' || (htmlText.trim() && !plainText.trim())) {
+                        emlLines.push(`Content-Type: text/html; charset="UTF-8"`);
+                        emlLines.push(`Content-Transfer-Encoding: 8bit`);
+                        emlLines.push(``);
+                        emlLines.push(htmlText);
+                    } else {
+                        emlLines.push(`Content-Type: text/plain; charset="UTF-8"`);
+                        emlLines.push(`Content-Transfer-Encoding: 8bit`);
+                        emlLines.push(``);
+                        emlLines.push(plainText);
+                    }
+                }
+
+                // Append Attachments if any
+                if (hasAttachments) {
+                    for (let file of attachedFiles) {
+                        emlLines.push(`--${mixedBoundary}`);
+                        const fileMime = file.type || 'application/octet-stream';
+                        const encodedFileName = encodeHeader(file.name);
+                        emlLines.push(`Content-Type: ${fileMime};\r\n\tname="${file.name}"`);
+                        emlLines.push(`Content-Disposition: attachment;\r\n\tfilename="${file.name}";\r\n\tfilename*=UTF-8''${encodeURIComponent(file.name)}`);
+                        emlLines.push(`Content-Transfer-Encoding: base64`);
+                        emlLines.push(``);
+
+                        // Read file as ArrayBuffer and convert to Base64
+                        const buffer = await file.arrayBuffer();
+                        const base64Raw = arrayBufferToBase64(buffer);
+                        const base64Formatted = chunkBase64(base64Raw);
+                        emlLines.push(base64Formatted.trimEnd());
+                    }
+                    emlLines.push(`--${mixedBoundary}--`);
+                }
+
+                // Combine with CRLF (\r\n)
+                const emlContent = emlLines.join('\r\n') + '\r\n';
+
+                // Create Blob and Download
+                const blob = new Blob([emlContent], { type: 'message/rfc822;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+
+                // Determine filename
+                let customFilename = document.getElementById('filenameInput').value.trim();
+                if (!customFilename) {
+                    // Sanitize subject for filename
+                    customFilename = subject.replace(/[\\/:*?"<>|]/g, '_').trim();
+                    if (!customFilename) customFilename = 'alpaca_email';
+                }
+                if (!customFilename.toLowerCase().endsWith('.eml')) {
+                    customFilename += '.eml';
+                }
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = customFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                // Revoke object URL after download
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 1000);
+
+                showAlert('EML 파일이 성공적으로 생성되어 다운로드되었습니다!', 'success');
+
+            } catch (err) {
+                console.error(err);
+                showAlert('EML 파일을 생성하는 중 오류가 발생했습니다. 입력 내용을 확인해주세요.');
+            }
+        }
+
+        // Reset Form
+        function resetForm() {
+            if (confirm('모든 입력 내용과 첨부파일을 초기화하시겠습니까?')) {
+                document.getElementById('fromInput').value = '';
+                document.getElementById('toInput').value = '';
+                document.getElementById('ccInput').value = '';
+                document.getElementById('bccInput').value = '';
+                document.getElementById('replyToInput').value = '';
+                document.getElementById('subjectInput').value = '';
+                document.getElementById('filenameInput').value = '';
+                document.getElementById('plainTextBody').value = '';
+                document.getElementById('htmlTextBody').value = '';
+                document.querySelector('input[name="bodyFormat"][value="both"]').checked = true;
+                setDefaultDate();
+                attachedFiles = [];
+                renderFileList();
+                hideAlert();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    </script>
+</body>
+</html>
